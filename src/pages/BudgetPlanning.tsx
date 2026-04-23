@@ -1,4 +1,4 @@
-import { ALL_CATEGORIES } from '../lib/staticData';
+
 import { fmt$ } from '../lib/format';
 import { ProgressBar } from '../components/charts/ProgressBar';
 

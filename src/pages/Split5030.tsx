@@ -71,7 +71,7 @@ export function Split5030() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {CATEGORIES_BY_KIND.map(section => {
             const total = section.items.reduce((s, i) => s + i.amount, 0);
-            const seg = STATIC_SPLIT.find(s => s.kind === section.kind);
+            const seg = STATIC_SPLIT.find(s => s.key === section.kind);
             const pct = seg?.actual || 0;
             const onTrack = Math.abs(pct - section.target) < 5;
             return (
@@ -81,7 +81,7 @@ export function Split5030() {
                     <span style={{ width: 10, height: 10, borderRadius: 999, background: section.color, display: 'inline-block' }} />
                     <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{section.label}</span>
                   </div>
-                  <div style={{ display: 'flex', align: 'center', gap: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ fontSize: 13, fontVariantNumeric: 'tabular-nums', fontWeight: 700, color: 'var(--ink)' }}>{fmt$(total)}</span>
                     <span style={{
                       fontSize: 11, padding: '2px 8px', borderRadius: 999, marginLeft: 8,
@@ -134,5 +134,5 @@ export function Split5030() {
         </div>
       ))}
     </div>
-  );
+  )
 }
