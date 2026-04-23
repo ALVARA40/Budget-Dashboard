@@ -164,3 +164,41 @@ export const ALL_CATEGORIES = {
   wants:   ['Dining out','Coffee Shops','Shopping','Clothing','Electronics','Entertainment','Streaming services','Gaming','Hobbies','Gym Membership','Travel','Hotel','Flights','Gifts','Donations','Fast Food','Home Decor','Furniture','Car Wash','Other Subscriptions'],
   savings: ['401k','Roth IRA','HSA','Emergency Fund','Investment Account','Savings Account','529 College Fund','Other Savings'],
 };
+
+export const STATIC_INCOME_CATEGORIES = [
+  { name: 'Other Income', value: 21127, color: '#2FB37A' },
+  { name: 'Work Income',  value: 17505, color: '#7FD4A7' },
+  { name: 'Other',        value:     0, color: '#ECEAF4' },
+];
+
+export const STATIC_EXPENSE_CATEGORIES = [
+  { name: 'School Tuition',        value: 7007, color: '#D8443F' },
+  { name: 'Mortgage/Rent',         value: 4433, color: '#E87471' },
+  { name: 'Federal Tax',           value: 2667, color: '#F09A98' },
+  { name: 'Groceries',             value: 1195, color: '#F5BEBC' },
+  { name: 'Social Security/FICA',  value: 1029, color: '#FAD7D6' },
+  { name: 'Other',                 value: 6954, color: '#ECEAF4' },
+];
+
+export const STATIC_SAVINGS_CATEGORIES = [
+  { name: 'Retirement Account',   value: 5028, color: '#1F3F8A' },
+  { name: 'Retirement Account 2', value: 3676, color: '#3B6BC8' },
+  { name: 'Savings Account',      value:  400, color: '#7FB3E8' },
+  { name: '529 Plan Account',     value:  150, color: '#C5DEF4' },
+  { name: 'Other',                value:    0, color: '#ECEAF4' },
+];
+
+export const STATIC_TRACKED_VS_BUDGET = [
+  { m: 'Jan', budget: 55000, income: 57207, expenses: 17916, savings: 39291 },
+  { m: 'Feb', budget: 45000, income: 18563, expenses: 22042, savings:     0 },
+  { m: 'Mar', budget: 85000, income: 80607, expenses: 55685, savings: 24922 },
+  { m: 'Apr', budget: 32705, income: 38632, expenses: 23285, savings:  9254 },
+  { m: 'May', budget: 30000, income:     0, expenses:     0, savings:     0 },
+  { m: 'Jun', budget: 28000, income:     0, expenses:     0, savings:     0 },
+  { m: 'Jul', budget: 26000, income:     0, expenses:     0, savings:     0 },
+  { m: 'Aug', budget: 25000, income:     0, expenses:     0, savings:     0 },
+  { m: 'Sep', budget: 24000, income:     0, expenses:     0, savings:     0 },
+  { m: 'Oct', budget: 26000, income:     0, expenses:     0, savings:     0 },
+  { m: 'Nov', budget: 28000, income:     0, expenses:     0, savings:     0 },
+  { m: 'Dec', budget: 32000, income:     0, expenses:     0, savings:     0 },
+];

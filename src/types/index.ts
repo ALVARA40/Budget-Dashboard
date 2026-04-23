@@ -82,3 +82,17 @@ export interface BudgetItem {
   budget: number;
   color: string;
 }
+
+export interface CategoryBreakdownItem {
+  name: string;
+  value: number;
+  color: string;
+}
+
+export interface TrackedVsBudgetMonth {
+  m: string;
+  budget: number;
+  income: number;
+  expenses: number;
+  savings: number;
+}
