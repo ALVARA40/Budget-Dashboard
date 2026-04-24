@@ -1,16 +1,12 @@
-
 import { fmt$ } from '../lib/format';
 import { ProgressBar } from '../components/charts/ProgressBar';
 
-// Static budget data derived from Excel Budget Planning sheet
 const BUDGET_ROWS = [
-  // Income
   { kind: 'income',  name: 'Work Income',         budget: 9413.08,  icon: '💼' },
   { kind: 'income',  name: 'Business Income',      budget: 9413.08,  icon: '🏢' },
   { kind: 'income',  name: 'Investment Income',    budget: 9413.08,  icon: '📈' },
   { kind: 'income',  name: 'Side Hustle Income',   budget: 9413.08,  icon: '⚡' },
   { kind: 'income',  name: 'Other Income',         budget: 980.80,   icon: '💰' },
-  // Needs
   { kind: 'need',    name: 'Mortgage/Rent',        budget: 4433.58,  icon: '🏠' },
   { kind: 'need',    name: 'Federal Tax',          budget: 2667.00,  icon: '🏛️' },
   { kind: 'need',    name: 'Social Security/FICA', budget: 1029.40,  icon: '🔒' },
@@ -21,13 +17,11 @@ const BUDGET_ROWS = [
   { kind: 'need',    name: 'Cell Phone',           budget: 80.00,    icon: '📱' },
   { kind: 'need',    name: 'Internet',             budget: 60.00,    icon: '🌐' },
   { kind: 'need',    name: 'Electricity',          budget: 120.00,   icon: '💡' },
-  // Wants
   { kind: 'want',    name: 'Dining out',           budget: 450.00,   icon: '🍽️' },
   { kind: 'want',    name: 'Shopping',             budget: 550.00,   icon: '🛍️' },
   { kind: 'want',    name: 'Entertainment',        budget: 200.00,   icon: '🎬' },
   { kind: 'want',    name: 'Streaming services',   budget: 50.00,    icon: '📺' },
   { kind: 'want',    name: 'Gym Membership',       budget: 60.00,    icon: '💪' },
-  // Savings
   { kind: 'savings', name: '401k',                 budget: 2000.00,  icon: '🏦' },
   { kind: 'savings', name: 'Emergency Fund',       budget: 1000.00,  icon: '🛡️' },
   { kind: 'savings', name: 'Roth IRA',             budget: 500.00,   icon: '📊' },
@@ -39,15 +33,18 @@ const SECTION_LABELS: Record<string, string> = {
 const SECTION_COLORS: Record<string, string> = {
   income: '#33C58A', need: '#7C5CFC', want: '#F5B544', savings: '#4BA3F7',
 };
+const MONTH_NAMES_BP = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
-export function BudgetPlanning() {
+export function BudgetPlanning({ year = 2026, month = 4 }: { year?: number; month?: number }) {
   const kinds = ['income', 'need', 'want', 'savings'];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
       <div>
         <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.02em' }}>Budget Planning</div>
-        <div style={{ fontSize: 12.5, color: 'var(--ink-soft)', marginTop: 3 }}>Set monthly targets by category · April 2026</div>
+        <div style={{ fontSize: 12.5, color: 'var(--ink-soft)', marginTop: 3 }}>
+          {'Set monthly targets by category · ' + MONTH_NAMES_BP[month - 1] + ' ' + year}
+        </div>
       </div>
 
       {kinds.map(kind => {
