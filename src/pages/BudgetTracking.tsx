@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import { STATIC_TRANSACTIONS } from '../lib/staticData';
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 import { fmt$ } from '../lib/format';
 import { Icon } from '../components/ui/Icon';
+import type { Transaction } from '../types/index';
 
 const KIND_CONFIG: Record<string, { label: string; bg: string; color: string }> = {
   need:    { label: 'Need',    bg: '#EFEBFF', color: '#7C5CFC' },
@@ -28,24 +29,71 @@ function fmtYear(iso: string) {
   return new Date(iso + 'T12:00:00').getFullYear().toString();
 }
 
-const GRID = '72px 52px 1fr 90px 120px 130px 1fr 110px 56px';
+const GRID = '72px 52px 1fr 90px 130px 150px 1fr 110px 56px';
+const PAGE_SIZE = 100;
 
-export function BudgetTracking() {
-  const [search, setSearch] = useState('');
+export function BudgetTracking({ year = 0, month = 0 }: { year?: number; month?: number }) {
+  const [allTxns, setAllTxns]       = useState<Transaction[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [search, setSearch]         = useState('');
   const [filterKind, setFilterKind] = useState('all');
-  const [filterCat, setFilterCat] = useState('all');
+  const [filterCat, setFilterCat]   = useState('all');
+  const [page, setPage]             = useState(0);
 
-  const allCats = Array.from(new Set(STATIC_TRANSACTIONS.map(t => t.category?.name ?? '').filter(Boolean))).sort();
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { setLoading(false); return; }
 
-  const filtered = STATIC_TRANSACTIONS.filter(t => {
+      let query = supabase
+        .from('transactions')
+        .select('*, category:categories(*), bank:banks(*), company:companies(*)')
+        .eq('user_id', session.user.id)
+        .order('date', { ascending: false });
+
+      // Filter by year/month if provided
+      if (year > 0 && month > 0) {
+        const from = `${year}-${String(month).padStart(2,'0')}-01`;
+        const to   = new Date(year, month, 0).toISOString().slice(0,10);
+        query = query.gte('date', from).lte('date', to);
+      }
+
+      const { data } = await query;
+      if (!cancelled) {
+        setAllTxns((data as Transaction[]) || []);
+        setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [year, month]);
+
+  // Reset page when filters change
+  useEffect(() => { setPage(0); }, [search, filterKind, filterCat]);
+
+  const allCats = Array.from(new Set(allTxns.map(t => t.category?.name ?? '').filter(Boolean))).sort();
+
+  const filtered = allTxns.filter(t => {
     const kind = t.category?.kind ?? '';
-    const matchKind = filterKind === 'all' ? true : filterKind === 'income' ? kind === 'income' : filterKind === 'expense' ? (kind !== 'income' && kind !== 'savings') : filterKind === 'savings' ? kind === 'savings' : true;
+    const matchKind =
+      filterKind === 'all' ? true :
+      filterKind === 'income'  ? kind === 'income' :
+      filterKind === 'expense' ? (kind !== 'income' && kind !== 'savings') :
+      filterKind === 'savings' ? kind === 'savings' : true;
     const matchCat = filterCat === 'all' || (t.category?.name ?? '') === filterCat;
     const q = search.toLowerCase();
-    const matchSearch = !q || t.description.toLowerCase().includes(q) || (t.category?.name ?? '').toLowerCase().includes(q) || (t.bank?.name ?? '').toLowerCase().includes(q) || (t.company?.name ?? '').toLowerCase().includes(q);
+    const matchSearch = !q ||
+      t.description.toLowerCase().includes(q) ||
+      (t.category?.name ?? '').toLowerCase().includes(q) ||
+      (t.bank?.name ?? '').toLowerCase().includes(q) ||
+      (t.company?.name ?? '').toLowerCase().includes(q);
     return matchKind && matchCat && matchSearch;
   });
 
+  const totalPages  = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated   = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const totalIncome   = filtered.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
   const totalExpenses = filtered.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0);
   const totalNet      = totalIncome + totalExpenses;
@@ -55,7 +103,9 @@ export function BudgetTracking() {
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <div>
           <div style={{ fontSize:20, fontWeight:700, color:'var(--ink)', letterSpacing:'-0.02em' }}>Budget Tracking</div>
-          <div style={{ fontSize:12.5, color:'var(--ink-soft)', marginTop:3 }}>{filtered.length} of {STATIC_TRANSACTIONS.length} transactions</div>
+          <div style={{ fontSize:12.5, color:'var(--ink-soft)', marginTop:3 }}>
+            {loading ? 'Loading…' : `${filtered.length} of ${allTxns.length} transactions`}
+          </div>
         </div>
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>
           <div style={{ position:'relative' }}>
@@ -76,6 +126,8 @@ export function BudgetTracking() {
           </select>
         </div>
       </div>
+
+      {/* Summary chips */}
       <div style={{ display:'flex', gap:10 }}>
         <div style={{ display:'flex', alignItems:'center', gap:8, background:'#E3F5EC', borderRadius:10, padding:'8px 14px' }}>
           <span style={{ fontSize:11.5, fontWeight:600, color:'#1F9D6E' }}>Income</span>
@@ -90,12 +142,21 @@ export function BudgetTracking() {
           <span style={{ fontSize:13, fontWeight:700, color:'#7C5CFC', fontVariantNumeric:'tabular-nums' }}>{totalNet >= 0 ? '+' : ''}{fmt$(totalNet, { cents:true })}</span>
         </div>
       </div>
+
+      {/* Table */}
       <div className="card" style={{ overflow:'hidden' }}>
         <div style={{ display:'grid', gridTemplateColumns:GRID, gap:10, padding:'10px 18px', borderBottom:'1px solid var(--line)', fontSize:10.5, fontWeight:700, color:'var(--ink-muted)', letterSpacing:'0.06em', textTransform:'uppercase' as const }}>
           <div>Date</div><div>Year</div><div>Category</div><div>50/30/20</div><div>Bank</div><div>Company</div><div>Description</div><div style={{ textAlign:'right' }}>Amount</div><div></div>
         </div>
-        {filtered.map((t, i) => (
-          <div key={t.id} style={{ display:'grid', gridTemplateColumns:GRID, gap:10, padding:'11px 18px', alignItems:'center', borderTop: i === 0 ? 'none' : '1px solid var(--line)' }} onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = 'var(--bg)'; }} onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}>
+
+        {loading && (
+          <div style={{ padding:'48px 20px', textAlign:'center', color:'var(--ink-muted)', fontSize:13 }}>Loading transactions…</div>
+        )}
+
+        {!loading && paginated.map((t, i) => (
+          <div key={t.id} style={{ display:'grid', gridTemplateColumns:GRID, gap:10, padding:'11px 18px', alignItems:'center', borderTop: i === 0 ? 'none' : '1px solid var(--line)' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = 'var(--bg)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}>
             <div style={{ fontSize:12, fontWeight:600, color:'var(--ink)', fontVariantNumeric:'tabular-nums' }}>{fmtDateShort(t.date)}</div>
             <div style={{ fontSize:11.5, color:'var(--ink-muted)', fontVariantNumeric:'tabular-nums' }}>{fmtYear(t.date)}</div>
             <div style={{ display:'flex', alignItems:'center', gap:7, minWidth:0 }}>
@@ -115,10 +176,26 @@ export function BudgetTracking() {
             </div>
           </div>
         ))}
-        {filtered.length === 0 && (
+
+        {!loading && filtered.length === 0 && (
           <div style={{ padding:'48px 20px', textAlign:'center', color:'var(--ink-muted)', fontSize:13 }}>No transactions match your filters.</div>
         )}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:10 }}>
+          <button onClick={() => setPage(p => Math.max(0, p-1))} disabled={page === 0}
+            style={{ padding:'7px 16px', borderRadius:8, border:'1px solid var(--line)', background:'var(--surface)', color:'var(--ink)', fontSize:12.5, fontWeight:600, cursor: page === 0 ? 'not-allowed' : 'pointer', opacity: page === 0 ? 0.4 : 1, fontFamily:'inherit' }}>
+            ← Previous
+          </button>
+          <span style={{ fontSize:12.5, color:'var(--ink-soft)' }}>Page {page+1} of {totalPages} · {filtered.length} transactions</span>
+          <button onClick={() => setPage(p => Math.min(totalPages-1, p+1))} disabled={page === totalPages-1}
+            style={{ padding:'7px 16px', borderRadius:8, border:'1px solid var(--line)', background:'var(--surface)', color:'var(--ink)', fontSize:12.5, fontWeight:600, cursor: page === totalPages-1 ? 'not-allowed' : 'pointer', opacity: page === totalPages-1 ? 0.4 : 1, fontFamily:'inherit' }}>
+            Next →
+          </button>
+        </div>
+      )}
     </div>
   );
 }
