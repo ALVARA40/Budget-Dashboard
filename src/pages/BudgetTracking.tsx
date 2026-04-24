@@ -31,6 +31,7 @@ function fmtYear(iso: string) {
 
 const GRID = '72px 52px 1fr 90px 130px 150px 1fr 110px 56px';
 const PAGE_SIZE = 100;
+const BATCH = 1000;
 
 export function BudgetTracking({ year = 0, month = 0 }: { year?: number; month?: number }) {
   const [allTxns, setAllTxns]       = useState<Transaction[]>([]);
@@ -47,22 +48,32 @@ export function BudgetTracking({ year = 0, month = 0 }: { year?: number; month?:
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { setLoading(false); return; }
 
-      let query = supabase
-        .from('transactions')
-        .select('*, category:categories(*), bank:banks(*), company:companies(*)')
-        .eq('user_id', session.user.id)
-        .order('date', { ascending: false });
+      // Paginate through Supabase in batches of 1000
+      let all: Transaction[] = [];
+      let offset = 0;
+      while (true) {
+        let q = supabase
+          .from('transactions')
+          .select('*, category:categories(*), bank:banks(*), company:companies(*)')
+          .eq('user_id', session.user.id)
+          .order('date', { ascending: false })
+          .range(offset, offset + BATCH - 1);
 
-      // Filter by year/month if provided
-      if (year > 0 && month > 0) {
-        const from = `${year}-${String(month).padStart(2,'0')}-01`;
-        const to   = new Date(year, month, 0).toISOString().slice(0,10);
-        query = query.gte('date', from).lte('date', to);
+        if (year > 0 && month > 0) {
+          const from = `${year}-${String(month).padStart(2,'0')}-01`;
+          const to   = new Date(year, month, 0).toISOString().slice(0,10);
+          q = q.gte('date', from).lte('date', to);
+        }
+
+        const { data } = await q;
+        if (!data || data.length === 0) break;
+        all = all.concat(data as Transaction[]);
+        if (data.length < BATCH) break;
+        offset += BATCH;
       }
 
-      const { data } = await query;
       if (!cancelled) {
-        setAllTxns((data as Transaction[]) || []);
+        setAllTxns(all);
         setLoading(false);
       }
     }
@@ -70,7 +81,6 @@ export function BudgetTracking({ year = 0, month = 0 }: { year?: number; month?:
     return () => { cancelled = true; };
   }, [year, month]);
 
-  // Reset page when filters change
   useEffect(() => { setPage(0); }, [search, filterKind, filterCat]);
 
   const allCats = Array.from(new Set(allTxns.map(t => t.category?.name ?? '').filter(Boolean))).sort();
@@ -78,7 +88,7 @@ export function BudgetTracking({ year = 0, month = 0 }: { year?: number; month?:
   const filtered = allTxns.filter(t => {
     const kind = t.category?.kind ?? '';
     const matchKind =
-      filterKind === 'all' ? true :
+      filterKind === 'all'     ? true :
       filterKind === 'income'  ? kind === 'income' :
       filterKind === 'expense' ? (kind !== 'income' && kind !== 'savings') :
       filterKind === 'savings' ? kind === 'savings' : true;
@@ -92,8 +102,8 @@ export function BudgetTracking({ year = 0, month = 0 }: { year?: number; month?:
     return matchKind && matchCat && matchSearch;
   });
 
-  const totalPages  = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated   = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const totalPages    = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated     = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const totalIncome   = filtered.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
   const totalExpenses = filtered.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0);
   const totalNet      = totalIncome + totalExpenses;
@@ -127,7 +137,6 @@ export function BudgetTracking({ year = 0, month = 0 }: { year?: number; month?:
         </div>
       </div>
 
-      {/* Summary chips */}
       <div style={{ display:'flex', gap:10 }}>
         <div style={{ display:'flex', alignItems:'center', gap:8, background:'#E3F5EC', borderRadius:10, padding:'8px 14px' }}>
           <span style={{ fontSize:11.5, fontWeight:600, color:'#1F9D6E' }}>Income</span>
@@ -143,18 +152,18 @@ export function BudgetTracking({ year = 0, month = 0 }: { year?: number; month?:
         </div>
       </div>
 
-      {/* Table */}
       <div className="card" style={{ overflow:'hidden' }}>
         <div style={{ display:'grid', gridTemplateColumns:GRID, gap:10, padding:'10px 18px', borderBottom:'1px solid var(--line)', fontSize:10.5, fontWeight:700, color:'var(--ink-muted)', letterSpacing:'0.06em', textTransform:'uppercase' as const }}>
           <div>Date</div><div>Year</div><div>Category</div><div>50/30/20</div><div>Bank</div><div>Company</div><div>Description</div><div style={{ textAlign:'right' }}>Amount</div><div></div>
         </div>
 
         {loading && (
-          <div style={{ padding:'48px 20px', textAlign:'center', color:'var(--ink-muted)', fontSize:13 }}>Loading transactions…</div>
+          <div style={{ padding:'48px 20px', textAlign:'center', color:'var(--ink-muted)', fontSize:13 }}>Loading all transactions…</div>
         )}
 
         {!loading && paginated.map((t, i) => (
-          <div key={t.id} style={{ display:'grid', gridTemplateColumns:GRID, gap:10, padding:'11px 18px', alignItems:'center', borderTop: i === 0 ? 'none' : '1px solid var(--line)' }}
+          <div key={t.id}
+            style={{ display:'grid', gridTemplateColumns:GRID, gap:10, padding:'11px 18px', alignItems:'center', borderTop: i === 0 ? 'none' : '1px solid var(--line)' }}
             onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = 'var(--bg)'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}>
             <div style={{ fontSize:12, fontWeight:600, color:'var(--ink)', fontVariantNumeric:'tabular-nums' }}>{fmtDateShort(t.date)}</div>
@@ -182,7 +191,6 @@ export function BudgetTracking({ year = 0, month = 0 }: { year?: number; month?:
         )}
       </div>
 
-      {/* Pagination */}
       {totalPages > 1 && (
         <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:10 }}>
           <button onClick={() => setPage(p => Math.max(0, p-1))} disabled={page === 0}
