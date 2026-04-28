@@ -1,25 +1,89 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { fmt$ } from '../lib/format';
 import { Icon } from '../components/ui/Icon';
 import type { Transaction } from '../types/index';
 
-function fmtDateShort(iso: string) {
+const BATCH = 1000;
+const BANK_COLORS = ['#7C5CFC','#33C58A','#3B7BCE','#F5B544','#D8443F','#1F3F8A','#E6A214','#7FB3E8'];
+
+function fmtDate(iso: string) {
   const d = new Date(iso + 'T12:00:00');
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
 }
 
-const GRID = '80px 1fr 120px 130px 150px 110px';
-const PAGE_SIZE = 100;
-const BATCH = 1000;
+function KpiMini({ label, value, sub, color }: { label: string; value: string; sub: string; color: string }) {
+  return (
+    <div className="card" style={{ padding: '16px 18px' }}>
+      <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', fontWeight: 500 }}>{label}</div>
+      <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.02em', marginTop: 8 }}>{value}</div>
+      <div style={{ fontSize: 11, color, marginTop: 4, fontWeight: 600 }}>{sub}</div>
+    </div>
+  );
+}
+
+function Dropdown({ label, value, options, onChange }: {
+  label: string; value: string; options: string[]; onChange: (v: string) => void;
+}) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 6,
+      background: 'var(--surface)', border: '1px solid var(--line)',
+      borderRadius: 999, padding: '7px 14px',
+    }}>
+      {label && <span style={{ fontSize: 11.5, color: 'var(--ink-soft)', fontWeight: 500 }}>{label}:</span>}
+      <select value={value} onChange={e => onChange(e.target.value)}
+        style={{ border: 'none', background: 'none', fontFamily: 'inherit', fontSize: 12, color: 'var(--ink)', cursor: 'pointer', outline: 'none', fontWeight: 500 }}>
+        {options.map(o => <option key={o} value={o}>{o}</option>)}
+      </select>
+    </div>
+  );
+}
+
+function SortHeader({ label, sortKey, currentKey, dir, onSort, align = 'left' }: {
+  label: string; sortKey: string; currentKey: string; dir: 'asc' | 'desc';
+  onSort: (k: string) => void; align?: 'left' | 'right';
+}) {
+  const active = sortKey === currentKey;
+  return (
+    <div onClick={() => onSort(sortKey)} style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer',
+      color: active ? 'var(--brand)' : 'var(--ink-muted)',
+      justifyContent: align === 'right' ? 'flex-end' : 'flex-start',
+      width: '100%', userSelect: 'none',
+    }}>
+      {label}
+      {active && (
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"
+          style={{ transform: dir === 'asc' ? 'rotate(180deg)' : 'none' }}>
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      )}
+    </div>
+  );
+}
+
+function PageBtn({ disabled, onClick, label }: { disabled: boolean; onClick: () => void; label: string }) {
+  return (
+    <div onClick={disabled ? undefined : onClick} style={{
+      background: 'var(--surface)', border: '1px solid var(--line)',
+      color: disabled ? 'var(--ink-muted)' : 'var(--ink)',
+      padding: '5px 10px', borderRadius: 8, fontSize: 11.5, fontWeight: 500,
+      cursor: disabled ? 'not-allowed' : 'pointer',
+      opacity: disabled ? 0.5 : 1, userSelect: 'none',
+    }}>{label}</div>
+  );
+}
 
 export function Payments({ year = 0, month = 0 }: { year?: number; month?: number }) {
-  const [allTxns, setAllTxns]         = useState<Transaction[]>([]);
-  const [loading, setLoading]         = useState(true);
-  const [search, setSearch]           = useState('');
-  const [filterCat, setFilterCat]     = useState('all');
-  const [filterKind, setFilterKind]   = useState('expense'); // expenses only by default
-  const [page, setPage]               = useState(0);
+  const [allTxns, setAllTxns]   = useState<Transaction[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [search, setSearch]     = useState('');
+  const [filterBank, setFilterBank] = useState('All banks');
+  const [sortKey, setSortKey]   = useState('date');
+  const [sortDir, setSortDir]   = useState<'asc' | 'desc'>('desc');
+  const [page, setPage]         = useState(1);
+  const perPage = 50;
 
   useEffect(() => {
     let cancelled = false;
@@ -27,7 +91,6 @@ export function Payments({ year = 0, month = 0 }: { year?: number; month?: numbe
       setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { setLoading(false); return; }
-
       let all: Transaction[] = [];
       let offset = 0;
       while (true) {
@@ -35,258 +98,202 @@ export function Payments({ year = 0, month = 0 }: { year?: number; month?: numbe
           .from('transactions')
           .select('*, category:categories(*), bank:banks(*), company:companies(*)')
           .eq('user_id', session.user.id)
-          .lt('amount', 0)                       // expenses / payments only
+          .lt('amount', 0)
           .order('date', { ascending: false })
           .range(offset, offset + BATCH - 1);
-
         if (year > 0 && month > 0) {
-          const from = `${year}-${String(month).padStart(2,'0')}-01`;
+          const from = year + '-' + String(month).padStart(2,'0') + '-01';
           const to   = new Date(year, month, 0).toISOString().slice(0,10);
           q = q.gte('date', from).lte('date', to);
         }
-
         const { data } = await q;
         if (!data || data.length === 0) break;
         all = all.concat(data as Transaction[]);
         if (data.length < BATCH) break;
         offset += BATCH;
       }
-
-      if (!cancelled) {
-        setAllTxns(all);
-        setLoading(false);
-      }
+      if (!cancelled) { setAllTxns(all); setLoading(false); }
     }
     load();
     return () => { cancelled = true; };
   }, [year, month]);
 
-  // Derived filter options
-  const allCats = Array.from(new Set(
-    allTxns.map(t => (t.category as { name?: string } | null)?.name).filter(Boolean)
-  )).sort() as string[];
+  useEffect(() => { setPage(1); }, [search, filterBank]);
 
-  // Filtered view
-  const filtered = allTxns.filter(t => {
-    const catName = (t.category as { name?: string } | null)?.name ?? '';
-    const catKind = (t.category as { kind?: string } | null)?.kind ?? '';
-    if (filterKind !== 'all' && filterKind === 'needs'   && catKind !== 'need')    return false;
-    if (filterKind !== 'all' && filterKind === 'wants'   && catKind !== 'want')    return false;
-    if (filterCat !== 'all' && catName !== filterCat) return false;
-    if (search) {
-      const q = search.toLowerCase();
-      const desc = t.description?.toLowerCase() ?? '';
-      if (!desc.includes(q) && !catName.toLowerCase().includes(q)) return false;
-    }
-    return true;
-  });
+  const allBanks = useMemo(() =>
+    Array.from(new Set(allTxns.map(t => (t.bank as {name?:string}|null)?.name ?? '').filter(Boolean))).sort(),
+    [allTxns]
+  );
 
-  const pageCount   = Math.ceil(filtered.length / PAGE_SIZE);
-  const visible     = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-  const totalAmount = filtered.reduce((s, t) => s + Math.abs(t.amount), 0);
+  const filtered = useMemo(() => {
+    let out = allTxns.filter(t => {
+      const bankName = (t.bank as {name?:string}|null)?.name ?? '';
+      if (filterBank !== 'All banks' && bankName !== filterBank) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        if (!bankName.toLowerCase().includes(q) && !(t.description ?? '').toLowerCase().includes(q)) return false;
+      }
+      return true;
+    });
+    const dir = sortDir === 'asc' ? 1 : -1;
+    return [...out].sort((a, b) => {
+      if (sortKey === 'date')   return (a.date > b.date ? 1 : -1) * dir;
+      if (sortKey === 'amount') return (Math.abs(a.amount) - Math.abs(b.amount)) * dir;
+      if (sortKey === 'bank')   return (((a.bank as {name?:string}|null)?.name ?? '') > ((b.bank as {name?:string}|null)?.name ?? '') ? 1 : -1) * dir;
+      return 0;
+    });
+  }, [allTxns, search, filterBank, sortKey, sortDir]);
 
-  const chipStyle = (active: boolean): React.CSSProperties => ({
-    padding: '6px 14px', borderRadius: 999, fontSize: 12, fontWeight: 600,
-    cursor: 'pointer', border: '1px solid',
-    background: active ? 'var(--brand)' : 'var(--surface)',
-    color: active ? '#fff' : 'var(--ink-soft)',
-    borderColor: active ? 'var(--brand)' : 'var(--line)',
-    transition: 'all 0.12s',
-  });
+  const toggleSort = (k: string) => {
+    if (sortKey === k) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(k); setSortDir(k === 'date' || k === 'amount' ? 'desc' : 'asc'); }
+  };
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
+  const safeP      = Math.min(page, totalPages);
+  const pageRows   = filtered.slice((safeP - 1) * perPage, safeP * perPage);
+  const startIdx   = filtered.length === 0 ? 0 : (safeP - 1) * perPage + 1;
+  const endIdx     = Math.min(safeP * perPage, filtered.length);
+
+  const totalAmount = filtered.reduce((s,t) => s + Math.abs(t.amount), 0);
+  const avgAmount   = filtered.length ? totalAmount / filtered.length : 0;
+  const largest     = filtered.length ? Math.max(...filtered.map(t => Math.abs(t.amount))) : 0;
+
+  // By bank breakdown
+  const byBank = useMemo(() => {
+    const map: Record<string, { total: number; count: number }> = {};
+    filtered.forEach(t => {
+      const name = (t.bank as {name?:string}|null)?.name ?? 'Unknown';
+      if (!map[name]) map[name] = { total: 0, count: 0 };
+      map[name].total += Math.abs(t.amount);
+      map[name].count += 1;
+    });
+    return Object.entries(map).map(([name, v]) => ({ name, ...v })).sort((a,b) => b.total - a.total);
+  }, [filtered]);
+
+  const thStyle: React.CSSProperties = {
+    textAlign: 'left', padding: '12px 10px',
+    fontSize: 10.5, color: 'var(--ink-muted)', fontWeight: 600, letterSpacing: '0.05em',
+    borderBottom: '1px solid var(--line)', background: 'var(--surface)', whiteSpace: 'nowrap',
+  };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Page header */}
-      <div>
-        <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.02em' }}>Payments</div>
-        <div style={{ fontSize: 12.5, color: 'var(--ink-soft)', marginTop: 3 }}>
-          {loading ? 'Loading…' : (
-            filtered.length + ' payment' + (filtered.length !== 1 ? 's' : '') +
-            ' · ' + fmt$(totalAmount) + ' total'
-          )}
-        </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+      {/* KPI strip */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+        <KpiMini label="Payments"     value={filtered.length.toLocaleString()} sub={search || filterBank !== 'All banks' ? 'of ' + allTxns.length + ' total' : 'All-time history'} color="var(--brand)" />
+        <KpiMini label="Total volume" value={fmt$(totalAmount)}                sub={filtered.length + ' payments'} color="var(--green)" />
+        <KpiMini label="Avg payment"  value={fmt$(avgAmount)}                  sub="Per transaction"   color="#4BA3F7" />
+        <KpiMini label="Largest"      value={fmt$(largest)}                    sub="Single payment"    color="var(--red)" />
       </div>
 
-      {/* Filters bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        {/* Search */}
+      {/* By bank breakdown */}
+      {!loading && byBank.length > 0 && (
+        <div className="card" style={{ padding: '20px 22px' }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 12 }}>By bank</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {byBank.map((b, i) => {
+              const pct = totalAmount > 0 ? (b.total / totalAmount) * 100 : 0;
+              const c = BANK_COLORS[i % BANK_COLORS.length];
+              return (
+                <div key={b.name}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 6 }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--ink)', fontWeight: 500 }}>
+                      <span style={{ width: 10, height: 10, borderRadius: 3, background: c, display: 'inline-block' }} />
+                      {b.name}
+                      <span style={{ color: 'var(--ink-muted)', fontWeight: 400 }}>· {b.count} payments</span>
+                    </span>
+                    <span style={{ color: 'var(--ink)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                      {fmt$(b.total)} <span style={{ color: 'var(--ink-muted)', fontWeight: 500 }}>· {pct.toFixed(1)}%</span>
+                    </span>
+                  </div>
+                  <div style={{ height: 6, background: 'var(--bg)', borderRadius: 999, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: pct + '%', background: c, borderRadius: 999 }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div style={{
+        background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14,
+        padding: '14px 16px',
+        display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+      }}>
         <div style={{
           display: 'flex', alignItems: 'center', gap: 8,
-          background: 'var(--surface)', border: '1px solid var(--line)',
-          borderRadius: 999, padding: '7px 14px', flex: '1 1 200px', maxWidth: 280,
+          background: 'var(--bg)', border: '1px solid var(--line)',
+          borderRadius: 999, padding: '7px 14px', minWidth: 220,
         }}>
-          <Icon name="search" size={14} stroke="var(--ink-muted)" />
-          <input
-            value={search}
-            onChange={e => { setSearch(e.target.value); setPage(0); }}
-            placeholder="Search payments…"
-            style={{
-              border: 'none', background: 'none', outline: 'none',
-              fontFamily: 'inherit', fontSize: 12.5, color: 'var(--ink)',
-              width: '100%',
-            }}
-          />
-          {search && (
-            <span onClick={() => setSearch('')} style={{ cursor: 'pointer', color: 'var(--ink-muted)', fontSize: 14, lineHeight: 1 }}>×</span>
-          )}
+          <Icon name="search" size={13} stroke="var(--ink-muted)" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search bank or description…"
+            style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: 12.5, color: 'var(--ink)', flex: 1, fontFamily: 'inherit' }} />
+          {search && <span onClick={() => setSearch('')} style={{ color: 'var(--ink-muted)', cursor: 'pointer', fontSize: 14 }}>×</span>}
         </div>
-
-        {/* Kind filter chips */}
-        <div style={{ display: 'flex', gap: 6 }}>
-          {[
-            { value: 'all',   label: 'All' },
-            { value: 'needs', label: 'Needs' },
-            { value: 'wants', label: 'Wants' },
-          ].map(opt => (
-            <div key={opt.value} onClick={() => { setFilterKind(opt.value); setPage(0); }} style={chipStyle(filterKind === opt.value)}>
-              {opt.label}
-            </div>
-          ))}
-        </div>
-
-        {/* Category select */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 6,
-          background: 'var(--surface)', border: '1px solid var(--line)',
-          borderRadius: 999, padding: '6px 14px',
-        }}>
-          <Icon name="filter" size={13} stroke="var(--ink-soft)" />
-          <select
-            value={filterCat}
-            onChange={e => { setFilterCat(e.target.value); setPage(0); }}
-            style={{
-              border: 'none', background: 'none', fontFamily: 'inherit',
-              fontSize: 12.5, color: 'var(--ink)', cursor: 'pointer', outline: 'none',
-            }}
-          >
-            <option value="all">All categories</option>
-            {allCats.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
+        <Dropdown label="Bank" value={filterBank} options={['All banks', ...allBanks]} onChange={setFilterBank} />
+        <div style={{ flex: 1 }} />
+        <div style={{ fontSize: 11.5, color: 'var(--ink-soft)' }}>
+          Showing <b style={{ color: 'var(--ink)' }}>{filtered.length.toLocaleString()}</b> of <b style={{ color: 'var(--ink)' }}>{allTxns.length.toLocaleString()}</b> payments
         </div>
       </div>
-
-      {/* Totals summary row */}
-      {!loading && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-          {[
-            { label: 'Total payments',  value: fmt$(totalAmount), color: '#D8443F' },
-            { label: 'Transactions',    value: filtered.length.toLocaleString(), color: 'var(--ink)' },
-            { label: 'Avg. per payment', value: filtered.length > 0 ? fmt$(totalAmount / filtered.length) : '—', color: 'var(--ink)' },
-          ].map(k => (
-            <div key={k.label} className="card" style={{ padding: '14px 18px' }}>
-              <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', fontWeight: 500, marginBottom: 6 }}>{k.label}</div>
-              <div style={{ fontSize: 22, fontWeight: 700, color: k.color, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>{k.value}</div>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Table */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        {/* Header */}
+      <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--line)', overflow: 'hidden' }}>
+        <div style={{ overflow: 'auto', maxHeight: '60vh' }}>
+          <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: 12.5, fontVariantNumeric: 'tabular-nums' }}>
+            <thead>
+              <tr style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--surface)' }}>
+                <th style={{ ...thStyle, width: 140 }}><SortHeader label="DATE"   sortKey="date"   currentKey={sortKey} dir={sortDir} onSort={toggleSort} /></th>
+                <th style={thStyle}                   ><SortHeader label="BANK"   sortKey="bank"   currentKey={sortKey} dir={sortDir} onSort={toggleSort} /></th>
+                <th style={{ ...thStyle, width: 160, textAlign: 'right' }}><SortHeader label="AMOUNT" sortKey="amount" currentKey={sortKey} dir={sortDir} onSort={toggleSort} align="right" /></th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading && (
+                <tr><td colSpan={3} style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--ink-muted)' }}>Loading payments…</td></tr>
+              )}
+              {!loading && pageRows.length === 0 && (
+                <tr><td colSpan={3} style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--ink-muted)' }}>No payments match these filters.</td></tr>
+              )}
+              {!loading && pageRows.map((t, i) => {
+                const bankName = (t.bank as {name?:string}|null)?.name ?? '–';
+                return (
+                  <tr key={t.id} style={{ background: i % 2 ? 'var(--bg)' : 'var(--surface)' }}>
+                    <td style={{ padding: '11px 10px', color: 'var(--ink-soft)', borderBottom: '1px solid var(--line)', whiteSpace: 'nowrap' }}>{fmtDate(t.date)}</td>
+                    <td style={{ padding: '11px 10px', fontWeight: 600, borderBottom: '1px solid var(--line)' }}>{bankName}</td>
+                    <td style={{ padding: '11px 10px', textAlign: 'right', fontWeight: 700, color: 'var(--ink)', borderBottom: '1px solid var(--line)' }}>
+                      {fmt$(Math.abs(t.amount), { cents: true })}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination footer */}
         <div style={{
-          display: 'grid', gridTemplateColumns: GRID, gap: 12,
-          padding: '11px 20px',
-          borderBottom: '1px solid var(--line)',
-          fontSize: 11, fontWeight: 700, color: 'var(--ink-muted)',
-          letterSpacing: '0.04em', textTransform: 'uppercase',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          padding: '12px 18px', borderTop: '1px solid var(--line)', background: 'var(--surface)', gap: 10,
         }}>
-          <span>Date</span>
-          <span>Description</span>
-          <span>Category</span>
-          <span>Bank</span>
-          <span>Company</span>
-          <span style={{ textAlign: 'right' }}>Amount</span>
+          <div style={{ fontSize: 11.5, color: 'var(--ink-soft)' }}>
+            {loading ? 'Loading…' : (<>
+              Page <b style={{ color: 'var(--ink)' }}>{safeP}</b> of <b style={{ color: 'var(--ink)' }}>{totalPages}</b>
+              {' '}· {startIdx}–{endIdx} of {filtered.length.toLocaleString()}
+            </>)}
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <PageBtn disabled={safeP === 1}          onClick={() => setPage(1)}          label="«" />
+            <PageBtn disabled={safeP === 1}          onClick={() => setPage(p => Math.max(1, p-1))} label="‹ Prev" />
+            <PageBtn disabled={safeP === totalPages} onClick={() => setPage(p => Math.min(totalPages, p+1))} label="Next ›" />
+            <PageBtn disabled={safeP === totalPages} onClick={() => setPage(totalPages)} label="»" />
+          </div>
         </div>
-
-        {loading ? (
-          <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--ink-muted)', fontSize: 13 }}>
-            Loading payments…
-          </div>
-        ) : visible.length === 0 ? (
-          <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--ink-muted)', fontSize: 13 }}>
-            No payments match your filters.
-          </div>
-        ) : (
-          visible.map((t, i) => {
-            const catName    = (t.category as { name?: string } | null)?.name ?? '—';
-            const catKind    = (t.category as { kind?: string } | null)?.kind ?? '';
-            const bankName   = (t.bank    as { name?: string } | null)?.name ?? '—';
-            const compName   = (t.company as { name?: string } | null)?.name ?? '—';
-
-            const kindColors: Record<string, { bg: string; color: string }> = {
-              need:    { bg: '#EFEBFF', color: '#7C5CFC' },
-              want:    { bg: '#FBF1D8', color: '#E6A214' },
-              savings: { bg: '#E3F5EC', color: '#1F9D6E' },
-              income:  { bg: '#E3F5EC', color: '#1F9D6E' },
-            };
-            const kc = kindColors[catKind] ?? { bg: 'var(--bg)', color: 'var(--ink-soft)' };
-
-            return (
-              <div key={t.id} style={{
-                display: 'grid', gridTemplateColumns: GRID, gap: 12,
-                padding: '10px 20px',
-                borderTop: i === 0 ? 'none' : '1px solid var(--line)',
-                alignItems: 'center',
-                fontSize: 12.5,
-              }}>
-                <span style={{ color: 'var(--ink-muted)', fontVariantNumeric: 'tabular-nums', fontSize: 12 }}>
-                  {fmtDateShort(t.date)}
-                </span>
-                <span style={{ color: 'var(--ink)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {t.description}
-                </span>
-                <div>
-                  <span style={{
-                    display: 'inline-block', padding: '3px 9px', borderRadius: 999,
-                    background: kc.bg, color: kc.color,
-                    fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
-                    overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 110,
-                  }}>
-                    {catName}
-                  </span>
-                </div>
-                <span style={{ color: 'var(--ink-soft)', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {bankName}
-                </span>
-                <span style={{ color: 'var(--ink-soft)', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {compName}
-                </span>
-                <span style={{ textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: '#D8443F' }}>
-                  {fmt$(t.amount, { cents: true })}
-                </span>
-              </div>
-            );
-          })
-        )}
       </div>
-
-      {/* Pagination */}
-      {pageCount > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
-          <button
-            onClick={() => setPage(p => Math.max(0, p - 1))}
-            disabled={page === 0}
-            style={{
-              padding: '6px 14px', borderRadius: 999, fontSize: 12, fontWeight: 600,
-              border: '1px solid var(--line)', background: 'var(--surface)', color: page === 0 ? 'var(--ink-muted)' : 'var(--ink)',
-              cursor: page === 0 ? 'default' : 'pointer',
-            }}
-          >← Prev</button>
-          <span style={{ fontSize: 12.5, color: 'var(--ink-soft)' }}>
-            Page {page + 1} of {pageCount}
-          </span>
-          <button
-            onClick={() => setPage(p => Math.min(pageCount - 1, p + 1))}
-            disabled={page >= pageCount - 1}
-            style={{
-              padding: '6px 14px', borderRadius: 999, fontSize: 12, fontWeight: 600,
-              border: '1px solid var(--line)', background: 'var(--surface)', color: page >= pageCount - 1 ? 'var(--ink-muted)' : 'var(--ink)',
-              cursor: page >= pageCount - 1 ? 'default' : 'pointer',
-            }}
-          >Next →</button>
-        </div>
-      )}
     </div>
   );
 }
