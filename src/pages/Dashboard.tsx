@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Sparkline } from '../components/charts/Sparkline';
 import { Donut } from '../components/charts/Donut';
 import { MoneyFlowChart } from '../components/charts/MoneyFlowChart';
@@ -13,12 +14,13 @@ import {
 } from '../lib/staticData';
 import type { CategoryBreakdownItem, TrackedVsBudgetMonth } from '../types/index';
 
-// ── KPI Card ─────────────────────────────────────────────────────────────────
+// ── KPI Card with interactive sparkline ──────────────────────────────────────
 function KpiCard({
-  label, value, delta, color, trendData, goodOnUp = true,
+  label, value, delta, color, trendData, trendLabels, goodOnUp = true, formatValue,
 }: {
   label: string; value: string; delta: number;
-  color: string; trendData: number[]; goodOnUp?: boolean;
+  color: string; trendData: number[]; trendLabels?: string[];
+  goodOnUp?: boolean; formatValue?: (v: number) => string;
 }) {
   return (
     <div className="card" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -30,14 +32,193 @@ function KpiCard({
         {value}
       </div>
       <div style={{ color, marginTop: -2 }}>
-        <Sparkline data={trendData} width={210} height={34} stroke={color} fill={color + '22'} />
+        <Sparkline
+          data={trendData} labels={trendLabels}
+          width={210} height={40}
+          stroke={color} fill={color + '22'}
+          formatValue={formatValue}
+        />
       </div>
     </div>
   );
 }
 
-// ── Tracked vs Budget Chart ───────────────────────────────────────────────────
+// ── Recent transactions with filter dropdown ─────────────────────────────────
+function RecentTransactionsCard({ transactions }: { transactions: any[] }) {
+  const [open, setOpen] = useState(false);
+  const [filter, setFilter] = useState('All');
+
+  const filterMap: Record<string, (t: any) => boolean> = {
+    'All':      () => true,
+    'Income':   t => t.amount > 0,
+    'Expenses': t => t.amount < 0,
+  };
+  const list = transactions.filter(filterMap[filter]).slice(0, 5);
+
+  return (
+    <div className="card" style={{ padding: '18px 20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Recent transactions</div>
+        <div style={{ position: 'relative' }}>
+          <div
+            onClick={() => setOpen(v => !v)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+              fontSize: 11.5, fontWeight: 600, padding: '5px 10px', borderRadius: 8,
+              color: filter === 'All' ? 'var(--ink-soft)' : 'var(--brand)',
+              background: (open || filter !== 'All') ? 'var(--brand-soft)' : 'transparent',
+              border: '1px solid ' + ((open || filter !== 'All') ? 'var(--brand)' : 'transparent'),
+            }}>
+            <Icon name="filter" size={13} />
+            {filter === 'All' ? 'Filter' : filter}
+          </div>
+          {open && (
+            <>
+              <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 9 }} />
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 10,
+                background: 'var(--surface)', border: '1px solid var(--line)',
+                borderRadius: 10, boxShadow: '0 14px 32px -10px rgba(15,14,26,0.18)',
+                padding: 4, minWidth: 140,
+              }}>
+                {['All', 'Income', 'Expenses'].map(f => (
+                  <div key={f} onClick={() => { setFilter(f); setOpen(false); }} style={{
+                    padding: '7px 12px', fontSize: 12.5, borderRadius: 6, cursor: 'pointer',
+                    color: filter === f ? 'var(--brand)' : 'var(--ink)',
+                    fontWeight: filter === f ? 600 : 500,
+                    background: 'transparent',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >{f}</div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {list.length === 0 ? (
+        <div style={{ padding: '24px 0', textAlign: 'center', fontSize: 12, color: 'var(--ink-soft)' }}>
+          No {filter.toLowerCase()} transactions this month.
+        </div>
+      ) : list.map((t, i) => (
+        <div key={t.id} style={{ display: 'grid', gridTemplateColumns: '70px 1fr auto auto', alignItems: 'center', gap: 12, padding: '9px 0', borderTop: i === 0 ? 'none' : '1px solid var(--line)' }}>
+          <div style={{ fontSize: 11.5, color: 'var(--ink-muted)', fontVariantNumeric: 'tabular-nums' }}>{fmtDate(t.date)}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+            <div style={{ width: 30, height: 30, borderRadius: 9, flexShrink: 0, background: t.amount > 0 ? 'var(--green-soft)' : 'var(--brand-soft)', color: t.amount > 0 ? 'var(--green)' : 'var(--brand)', display: 'grid', placeItems: 'center' }}>
+              <Icon name={t.amount > 0 ? 'arrowdown' : 'arrowup'} size={13} sw={2.2} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</div>
+              <div style={{ fontSize: 11, color: 'var(--ink-muted)' }}>{(t.category as any)?.name}</div>
+            </div>
+          </div>
+          <div style={{ fontSize: 11, padding: '3px 8px', borderRadius: 999, background: 'var(--bg)', color: 'var(--ink-soft)', whiteSpace: 'nowrap' }}>{(t.category as any)?.name}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: t.amount > 0 ? 'var(--green)' : 'var(--ink)', whiteSpace: 'nowrap' }}>
+            {t.amount > 0 ? '+' : ''}{fmt$(t.amount, { cents: true })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Savings goals with add-goal form ─────────────────────────────────────────
+function SavingsGoalsCard() {
+  const GOAL_COLORS = ['#7C5CFC', '#33C58A', '#F5B544', '#3B7BCE', '#D8443F', '#1F3F8A'];
+  const [goals, setGoals] = useState(
+    STATIC_GOALS.map(g => ({ name: g.name, target: g.target, saved: g.current, color: g.color }))
+  );
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState({ name: '', target: '', saved: '' });
+
+  function submit() {
+    if (!form.name || !form.target) return;
+    setGoals(g => [...g, {
+      name: form.name,
+      target: Number(form.target) || 0,
+      saved: Number(form.saved) || 0,
+      color: GOAL_COLORS[g.length % GOAL_COLORS.length],
+    }]);
+    setForm({ name: '', target: '', saved: '' });
+    setAdding(false);
+  }
+
+  return (
+    <div className="card" style={{ padding: '18px 20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: adding ? 12 : 14 }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Savings goals</div>
+          <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', marginTop: 2 }}>On track · {goals.length} active</div>
+        </div>
+        <div
+          onClick={() => setAdding(v => !v)}
+          title="Add a savings goal"
+          style={{
+            width: 26, height: 26, borderRadius: 8, display: 'grid', placeItems: 'center', cursor: 'pointer',
+            background: adding ? 'var(--brand)' : 'var(--bg)',
+            color: adding ? '#fff' : 'var(--ink-soft)',
+            transition: 'background 0.15s',
+          }}>
+          <Icon name="plus" size={13} sw={2.2} />
+        </div>
+      </div>
+
+      {adding && (
+        <div style={{ marginBottom: 14, padding: 12, background: 'var(--bg)', borderRadius: 10, border: '1px solid var(--line)' }}>
+          <input
+            value={form.name}
+            onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+            placeholder="Goal name (e.g. Down payment)"
+            style={{ width: '100%', padding: '8px 10px', fontSize: 12, border: '1px solid var(--line)', borderRadius: 8, background: 'var(--surface)', color: 'var(--ink)', fontFamily: 'inherit', marginBottom: 6, boxSizing: 'border-box' }}
+          />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 8 }}>
+            <input
+              value={form.target}
+              onChange={e => setForm(f => ({ ...f, target: e.target.value.replace(/[^0-9.]/g, '') }))}
+              placeholder="Target ($)"
+              style={{ width: '100%', padding: '8px 10px', fontSize: 12, border: '1px solid var(--line)', borderRadius: 8, background: 'var(--surface)', color: 'var(--ink)', fontFamily: 'inherit', boxSizing: 'border-box' }}
+            />
+            <input
+              value={form.saved}
+              onChange={e => setForm(f => ({ ...f, saved: e.target.value.replace(/[^0-9.]/g, '') }))}
+              placeholder="Saved so far ($)"
+              style={{ width: '100%', padding: '8px 10px', fontSize: 12, border: '1px solid var(--line)', borderRadius: 8, background: 'var(--surface)', color: 'var(--ink)', fontFamily: 'inherit', boxSizing: 'border-box' }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <div onClick={submit} style={{ flex: 1, background: 'var(--brand)', color: '#fff', padding: '7px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, textAlign: 'center', cursor: 'pointer' }}>Add goal</div>
+            <div onClick={() => { setAdding(false); setForm({ name: '', target: '', saved: '' }); }} style={{ background: 'var(--surface)', border: '1px solid var(--line)', color: 'var(--ink-soft)', padding: '7px 12px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>Cancel</div>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {goals.map(g => {
+          const pct = g.target > 0 ? (g.saved / g.target) * 100 : 0;
+          return (
+            <div key={g.name}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 7 }}>
+                <div style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 600 }}>{g.name}</div>
+                <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', fontVariantNumeric: 'tabular-nums' }}>
+                  <b style={{ color: 'var(--ink)', fontWeight: 700 }}>{fmt$(g.saved)}</b> / {fmt$(g.target)}
+                </div>
+              </div>
+              <ProgressBar pct={pct} color={g.color} track="var(--bg)" height={6} />
+              <div style={{ fontSize: 10.5, color: 'var(--ink-muted)', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{pct.toFixed(0)}% saved</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Tracked vs Budget Chart with hover ───────────────────────────────────────
 function TrackedVsBudget({ data, currentMonth = 'Apr' }: { data: TrackedVsBudgetMonth[]; currentMonth?: string }) {
+  const [hover, setHover] = useState<{ i: number; key: string } | null>(null);
+
   const seriesDef = [
     { key: 'income',   label: 'Income',   dark: '#2FB37A', light: '#CFEADF' },
     { key: 'expenses', label: 'Expenses', dark: '#D8443F', light: '#F5C9C7' },
@@ -50,6 +231,7 @@ function TrackedVsBudget({ data, currentMonth = 'Apr' }: { data: TrackedVsBudget
   const tickCount = 9;
   const ticks = Array.from({ length: tickCount + 1 }, (_, i) => Math.round((niceMax / tickCount) * i));
   const plotH = 210;
+
   return (
     <div className="card" style={{ padding: '20px 22px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
@@ -83,10 +265,38 @@ function TrackedVsBudget({ data, currentMonth = 'Apr' }: { data: TrackedVsBudget
                   const barTotalH = Math.max(budgetVal, trackedVal);
                   const darkH = trackedVal;
                   const lightH = Math.max(0, budgetVal - trackedVal);
+                  const isHover = hover?.i === i && hover?.key === s.key;
                   return (
-                    <div key={s.key} style={{ width: 11, height: `${(barTotalH / niceMax) * 100}%`, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+                    <div
+                      key={s.key}
+                      onMouseEnter={() => setHover({ i, key: s.key })}
+                      onMouseLeave={() => setHover(null)}
+                      style={{
+                        width: 11, height: `${(barTotalH / niceMax) * 100}%`,
+                        display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
+                        position: 'relative', cursor: 'pointer',
+                        opacity: hover && !isHover ? 0.45 : 1,
+                        transition: 'opacity 0.12s',
+                      }}>
                       {lightH > 0 && <div style={{ height: `${(lightH / barTotalH) * 100}%`, background: s.light, borderRadius: '3px 3px 0 0' }} />}
                       {darkH > 0 && <div style={{ height: `${(darkH / barTotalH) * 100}%`, background: s.dark, borderRadius: lightH === 0 ? '3px 3px 0 0' : '0' }} />}
+                      {isHover && (
+                        <div style={{
+                          position: 'absolute', bottom: '100%', left: '50%',
+                          transform: 'translate(-50%, -8px)',
+                          background: 'var(--ink)', color: '#fff',
+                          padding: '7px 11px', borderRadius: 9,
+                          fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap',
+                          boxShadow: '0 10px 22px -8px rgba(15,14,26,0.35)',
+                          zIndex: 20, pointerEvents: 'none',
+                        }}>
+                          <div style={{ fontSize: 9.5, color: '#BFB6F5', letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 3 }}>{d.m} · {s.label}</div>
+                          <div style={{ display: 'flex', gap: 10, fontVariantNumeric: 'tabular-nums' }}>
+                            <span>Tracked: <b>${trackedVal.toLocaleString()}</b></span>
+                            <span style={{ color: '#BFB6F5' }}>Budget: ${Math.round(budgetVal).toLocaleString()}</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -119,7 +329,10 @@ function CategoryCard({ title, accent, categories }: { title: string; accent: st
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginTop: 14 }}>
         <div style={{ width: 150, height: 150, flexShrink: 0 }}>
-          <Donut data={donutData} size={150} thickness={22} bg="var(--bg)" />
+          <Donut data={donutData} size={150} thickness={22}
+            centerLabel={title}
+            centerValue={'$' + total.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+          />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           {items.map(c => (
@@ -150,11 +363,13 @@ function CategoryCard({ title, accent, categories }: { title: string; accent: st
 // ── Dashboard Page ────────────────────────────────────────────────────────────
 export function Dashboard({ year = 2026, month = 4 }: { year?: number; month?: number }) {
   const { kpi, flow, split, budget, transactions, loading } = useDashboardData(year, month);
+  const [summaryOpen, setSummaryOpen] = useState(true);
 
   const incomeTrend  = flow.map(f => f.income);
   const expenseTrend = flow.map(f => f.expenses);
   const savingsTrend = flow.map(f => f.income - f.expenses);
   const rateTrend    = flow.map(f => f.income > 0 ? (f.income - f.expenses) / f.income * 100 : 0);
+  const flowLabels   = flow.map(f => f.m);
 
   if (loading) {
     return (
@@ -169,10 +384,10 @@ export function Dashboard({ year = 2026, month = 4 }: { year?: number; month?: n
 
       {/* KPI row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
-        <KpiCard label="Total income"   value={fmt$(kpi.income.value)}           delta={kpi.income.delta}      color="#2FB37A" trendData={incomeTrend.length > 1 ? incomeTrend : [0,1]}  />
-        <KpiCard label="Total expenses" value={fmt$(kpi.expenses.value)}         delta={kpi.expenses.delta}    color="#D8443F" trendData={expenseTrend.length > 1 ? expenseTrend : [0,1]} goodOnUp={false} />
-        <KpiCard label="Net savings"    value={fmt$(kpi.savings.value)}          delta={kpi.savings.delta}     color="#7FB3E8" trendData={savingsTrend.length > 1 ? savingsTrend : [0,1]} />
-        <KpiCard label="Savings rate"   value={fmtPct(kpi.savingsRate.value, 2)} delta={kpi.savingsRate.delta} color="#1F3F8A" trendData={rateTrend.length > 1 ? rateTrend : [0,1]} />
+        <KpiCard label="Total income"   value={fmt$(kpi.income.value)}           delta={kpi.income.delta}      color="#2FB37A" trendData={incomeTrend.length > 1 ? incomeTrend : [0,1]}  trendLabels={flowLabels} formatValue={v => fmt$(v)} />
+        <KpiCard label="Total expenses" value={fmt$(kpi.expenses.value)}         delta={kpi.expenses.delta}    color="#D8443F" trendData={expenseTrend.length > 1 ? expenseTrend : [0,1]} trendLabels={flowLabels} formatValue={v => fmt$(v)} goodOnUp={false} />
+        <KpiCard label="Net savings"    value={fmt$(kpi.savings.value)}          delta={kpi.savings.delta}     color="#7FB3E8" trendData={savingsTrend.length > 1 ? savingsTrend : [0,1]} trendLabels={flowLabels} formatValue={v => fmt$(v)} />
+        <KpiCard label="Savings rate"   value={fmtPct(kpi.savingsRate.value, 2)} delta={kpi.savingsRate.delta} color="#1F3F8A" trendData={rateTrend.length > 1 ? rateTrend : [0,1]}       trendLabels={flowLabels} formatValue={v => v.toFixed(1) + '%'} />
       </div>
 
       {/* Middle row */}
@@ -197,7 +412,6 @@ export function Dashboard({ year = 2026, month = 4 }: { year?: number; month?: n
               size={150} thickness={22}
               centerLabel="Of expenses"
               centerValue={fmtPct(split[0]?.actual ?? 0, 0)}
-              bg="var(--bg)"
             />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
@@ -230,7 +444,6 @@ export function Dashboard({ year = 2026, month = 4 }: { year?: number; month?: n
                 size={142} thickness={20}
                 centerLabel="Total expenses"
                 centerValue={fmt$(kpi.expenses.value)}
-                bg="var(--surface)"
               />
             </div>
           </div>
@@ -239,70 +452,41 @@ export function Dashboard({ year = 2026, month = 4 }: { year?: number; month?: n
 
       {/* Bottom row */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr', gap: 14 }}>
-        <div className="card" style={{ padding: '18px 20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Recent transactions</div>
-            <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', fontWeight: 500 }}>{transactions.length} this month</div>
-          </div>
-          {transactions.slice(0, 5).map((t, i) => (
-            <div key={t.id} style={{ display: 'grid', gridTemplateColumns: '70px 1fr auto auto', alignItems: 'center', gap: 12, padding: '9px 0', borderTop: i === 0 ? 'none' : '1px solid var(--line)' }}>
-              <div style={{ fontSize: 11.5, color: 'var(--ink-muted)', fontVariantNumeric: 'tabular-nums' }}>{fmtDate(t.date)}</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                <div style={{ width: 30, height: 30, borderRadius: 9, flexShrink: 0, background: t.amount > 0 ? 'var(--green-soft)' : 'var(--brand-soft)', color: t.amount > 0 ? 'var(--green)' : 'var(--brand)', display: 'grid', placeItems: 'center' }}>
-                  <Icon name={t.amount > 0 ? 'arrowdown' : 'arrowup'} size={13} sw={2.2} />
-                </div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</div>
-                  <div style={{ fontSize: 11, color: 'var(--ink-muted)' }}>{t.category?.name}</div>
-                </div>
-              </div>
-              <div style={{ fontSize: 11, padding: '3px 8px', borderRadius: 999, background: 'var(--bg)', color: 'var(--ink-soft)', whiteSpace: 'nowrap' }}>{t.category?.name}</div>
-              <div style={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: t.amount > 0 ? 'var(--green)' : 'var(--ink)', whiteSpace: 'nowrap' }}>
-                {t.amount > 0 ? '+' : ''}{fmt$(t.amount, { cents: true })}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="card" style={{ padding: '18px 20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Savings goals</div>
-              <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', marginTop: 2 }}>On track · {STATIC_GOALS.length} active</div>
-            </div>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {STATIC_GOALS.map(g => {
-              const pct = (g.current / g.target) * 100;
-              return (
-                <div key={g.id}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 7 }}>
-                    <div style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 600 }}>{g.name}</div>
-                    <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', fontVariantNumeric: 'tabular-nums' }}>
-                      <b style={{ color: 'var(--ink)', fontWeight: 700 }}>{fmt$(g.current)}</b> / {fmt$(g.target)}
-                    </div>
-                  </div>
-                  <ProgressBar pct={pct} color={g.color} track="var(--bg)" height={6} />
-                  <div style={{ fontSize: 10.5, color: 'var(--ink-muted)', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{pct.toFixed(0)}% saved</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        <RecentTransactionsCard transactions={transactions} />
+        <SavingsGoalsCard />
       </div>
 
-      {/* Summary section */}
+      {/* Summary section — collapsible */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 4 }}>
-        <div style={{ padding: '6px 2px' }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>Summary · April 2026</div>
-          <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 2 }}>Tracked category breakdown vs. budget</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 2px' }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>Summary · April 2026</div>
+            <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 2 }}>Tracked category breakdown vs. budget</div>
+          </div>
+          <div
+            onClick={() => setSummaryOpen(v => !v)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 7, padding: '7px 14px',
+              borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--line)',
+              fontSize: 12, color: 'var(--ink)', fontWeight: 500, cursor: 'pointer', userSelect: 'none',
+            }}>
+            {summaryOpen ? 'Hide details' : 'Show details'}
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--ink-soft)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
+              style={{ transform: summaryOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </div>
         </div>
-        <TrackedVsBudget data={STATIC_TRACKED_VS_BUDGET} currentMonth="Apr" />
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-          <CategoryCard title="Income"   accent="#2FB37A" categories={STATIC_INCOME_CATEGORIES} />
-          <CategoryCard title="Expenses" accent="#D8443F" categories={STATIC_EXPENSE_CATEGORIES} />
-          <CategoryCard title="Savings"  accent="#1F3F8A" categories={STATIC_SAVINGS_CATEGORIES} />
-        </div>
+        {summaryOpen && (
+          <>
+            <TrackedVsBudget data={STATIC_TRACKED_VS_BUDGET} currentMonth="Apr" />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+              <CategoryCard title="Income"   accent="#2FB37A" categories={STATIC_INCOME_CATEGORIES} />
+              <CategoryCard title="Expenses" accent="#D8443F" categories={STATIC_EXPENSE_CATEGORIES} />
+              <CategoryCard title="Savings"  accent="#1F3F8A" categories={STATIC_SAVINGS_CATEGORIES} />
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
