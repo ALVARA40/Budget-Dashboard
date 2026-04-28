@@ -19,7 +19,7 @@ export function Header({ onAddEntry, selectedYear, selectedMonth, onYearChange, 
     }}>
       <div>
         <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.02em' }}>
-          Welcome back, Alejandro
+          Welcome back, Alejandro Alvarez
         </div>
         <div style={{ fontSize: 12.5, color: 'var(--ink-soft)', marginTop: 3 }}>
           Here's where your money went in{' '}

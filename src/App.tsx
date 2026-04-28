@@ -9,6 +9,7 @@ import { BudgetPlanning } from './pages/BudgetPlanning';
 import { BudgetTracking } from './pages/BudgetTracking';
 import { Split5030 } from './pages/Split5030';
 import { Analytics } from './pages/Analytics';
+import { Payments } from './pages/Payments';
 import { Settings } from './pages/Settings';
 import { Login } from './pages/Login';
 import type { Session } from '@supabase/supabase-js';
@@ -57,6 +58,7 @@ function AppShell({ session }: { session: Session | null }) {
             <Route path="/"                element={<Dashboard      year={selectedYear} month={selectedMonth} />} />
             <Route path="/budget-planning" element={<BudgetPlanning year={selectedYear} month={selectedMonth} />} />
             <Route path="/budget-tracking" element={<BudgetTracking year={selectedYear} month={selectedMonth} />} />
+            <Route path="/payments"        element={<Payments       year={selectedYear} month={selectedMonth} />} />
             <Route path="/50-30-20"        element={<Split5030      year={selectedYear} month={selectedMonth} />} />
             <Route path="/analytics"       element={<Analytics      year={selectedYear} month={selectedMonth} />} />
             <Route path="/settings"        element={<Settings />} />

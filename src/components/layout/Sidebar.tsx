@@ -6,6 +6,7 @@ const NAV_ITEMS: { path: string; label: string; icon: IconName }[] = [
   { path: '/',                label: 'Dashboard',       icon: 'dashboard' },
   { path: '/budget-planning', label: 'Budget Planning', icon: 'planning'  },
   { path: '/budget-tracking', label: 'Budget Tracking', icon: 'tracking'  },
+  { path: '/payments',        label: 'Payments',        icon: 'tracking'  },
   { path: '/50-30-20',        label: '50 / 30 / 20',    icon: 'split'     },
   { path: '/analytics',       label: 'Analytics',       icon: 'analytics' },
 ];
@@ -87,7 +88,7 @@ export function Sidebar() {
           background: 'linear-gradient(135deg, #FFB37C, #F25F5C)',
           color: 'white', display: 'grid', placeItems: 'center',
           fontWeight: 700, fontSize: 12,
-        }}>AG</div>
+        }}>AA</div>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)' }}>Alejandro</div>
           <div style={{ fontSize: 11, color: 'var(--ink-muted)' }}>Personal plan</div>

@@ -1,19 +1,13 @@
+import { useState } from 'react';
 import type { FlowMonth } from '../../types';
-import { fmt$ } from '../../lib/format';
 
 interface Props {
   data: FlowMonth[];
   height?: number;
-  highlightIdx?: number;
 }
 
-export function MoneyFlowChart({ data, height = 210, highlightIdx }: Props) {
-  // Auto-pick peak income month if not specified
-  let peakIdx = highlightIdx;
-  if (peakIdx == null) {
-    let peak = 0;
-    data.forEach((f, i) => { if (f.income > peak) { peak = f.income; peakIdx = i; } });
-  }
+export function MoneyFlowChart({ data, height = 210 }: Props) {
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
   const max = Math.max(...data.flatMap(d => [d.income, d.expenses]));
   const step = 5000;
@@ -21,6 +15,8 @@ export function MoneyFlowChart({ data, height = 210, highlightIdx }: Props) {
   const tickCount = 4;
   const ticks = Array.from({ length: tickCount + 1 }, (_, i) => Math.round((niceMax / tickCount) * i));
   const plotH = height - 36;
+
+  const tickLabel = (v: number) => '$' + v.toLocaleString('en-US');
 
   return (
     <div style={{ position: 'relative', paddingTop: 32 }}>
@@ -35,7 +31,7 @@ export function MoneyFlowChart({ data, height = 210, highlightIdx }: Props) {
               fontSize: 10.5, color: 'var(--ink-muted)', fontVariantNumeric: 'tabular-nums',
               textAlign: 'right', lineHeight: 1, transform: 'translateY(50%)',
             }}>
-              {i === 0 ? '' : '$' + t.toLocaleString('en-US')}
+              {i === 0 ? '' : tickLabel(t)}
             </div>
           ))}
         </div>
@@ -53,51 +49,73 @@ export function MoneyFlowChart({ data, height = 210, highlightIdx }: Props) {
 
           {/* Bars */}
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'flex-end' }}>
-            {data.map((d, i) => (
-              <div key={i} style={{
-                flex: 1, height: '100%',
-                display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-                gap: 4, position: 'relative',
-              }}>
-                <div style={{
-                  width: 16,
-                  height: `${(d.income / niceMax) * 100}%`,
-                  background: 'var(--brand)',
-                  borderRadius: '10px 10px 4px 4px',
-                }} />
-                <div style={{
-                  width: 16,
-                  height: `${(d.expenses / niceMax) * 100}%`,
-                  background: 'var(--expense-bar)',
-                  borderRadius: '10px 10px 4px 4px',
-                }} />
-
-                {/* Tooltip on peak bar */}
-                {i === peakIdx && (
+            {data.map((d, i) => {
+              const active = hoverIdx === i;
+              return (
+                <div
+                  key={i}
+                  onMouseEnter={() => setHoverIdx(i)}
+                  onMouseLeave={() => setHoverIdx(null)}
+                  style={{
+                    flex: 1, height: '100%',
+                    display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+                    gap: 4, position: 'relative', cursor: 'pointer',
+                  }}
+                >
                   <div style={{
-                    position: 'absolute',
-                    bottom: `${(d.income / niceMax) * 100}%`,
-                    left: '50%', transform: 'translate(-50%, -14px)',
-                    background: 'var(--surface)', color: 'var(--ink)',
-                    padding: '7px 14px', borderRadius: 999,
-                    fontSize: 12.5, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
-                    whiteSpace: 'nowrap',
-                    boxShadow: '0 10px 22px -8px rgba(15,14,26,0.18)',
-                    border: '1px solid var(--line)',
-                    pointerEvents: 'none',
-                  }}>
-                    {fmt$(d.income)}
+                    width: 16,
+                    height: `${(d.income / niceMax) * 100}%`,
+                    background: 'var(--brand)',
+                    borderRadius: '10px 10px 4px 4px',
+                    opacity: hoverIdx == null || active ? 1 : 0.45,
+                    transition: 'opacity 0.12s',
+                  }} />
+                  <div style={{
+                    width: 16,
+                    height: `${(d.expenses / niceMax) * 100}%`,
+                    background: 'var(--expense-bar)',
+                    borderRadius: '10px 10px 4px 4px',
+                    opacity: hoverIdx == null || active ? 1 : 0.45,
+                    transition: 'opacity 0.12s',
+                  }} />
+
+                  {/* Hover tooltip */}
+                  {active && (
                     <div style={{
-                      position: 'absolute', left: '50%', top: '100%',
-                      transform: 'translate(-50%, 3px)',
-                      width: 6, height: 6, borderRadius: 999,
-                      background: 'var(--brand)',
-                      boxShadow: '0 0 0 3px var(--surface)',
-                    }} />
-                  </div>
-                )}
-              </div>
-            ))}
+                      position: 'absolute',
+                      bottom: `${(Math.max(d.income, d.expenses) / niceMax) * 100}%`,
+                      left: '50%', transform: 'translate(-50%, -10px)',
+                      background: 'var(--ink)', color: '#fff',
+                      padding: '8px 12px', borderRadius: 10,
+                      fontSize: 11.5, fontWeight: 500,
+                      whiteSpace: 'nowrap', pointerEvents: 'none',
+                      boxShadow: '0 10px 22px -8px rgba(15,14,26,0.35)',
+                      zIndex: 10,
+                    }}>
+                      <div style={{ fontSize: 9.5, color: '#BFB6F5', letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 4 }}>{d.m}</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 3, fontVariantNumeric: 'tabular-nums' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: 999, background: 'var(--brand)' }} />
+                          Income: {tickLabel(d.income)}
+                        </span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: 999, background: 'var(--expense-bar)' }} />
+                          Expenses: {tickLabel(d.expenses)}
+                        </span>
+                      </div>
+                      <div style={{
+                        position: 'absolute', left: '50%', top: '100%',
+                        transform: 'translateX(-50%)',
+                        width: 0, height: 0,
+                        borderLeft: '5px solid transparent',
+                        borderRight: '5px solid transparent',
+                        borderTop: '5px solid var(--ink)',
+                      }} />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -107,7 +125,9 @@ export function MoneyFlowChart({ data, height = 210, highlightIdx }: Props) {
         {data.map((d, i) => (
           <div key={i} style={{
             flex: 1, textAlign: 'center',
-            fontSize: 11.5, color: 'var(--ink-soft)', fontWeight: 500,
+            fontSize: 11.5,
+            color: hoverIdx === i ? 'var(--ink)' : 'var(--ink-soft)',
+            fontWeight: hoverIdx === i ? 700 : 500,
           }}>{d.m}</div>
         ))}
       </div>
