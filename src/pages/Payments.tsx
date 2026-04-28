@@ -59,13 +59,14 @@ function PageBtn({ disabled, onClick, label }: { disabled: boolean; onClick: () 
 }
 
 export function Payments({ year = 0, month = 0 }: { year?: number; month?: number }) {
-  const [allTxns, setAllTxns]   = useState<Transaction[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [search, setSearch]     = useState('');
-  const [filterBank, setFilterBank] = useState('All banks');
-  const [sortKey, setSortKey]   = useState('date');
-  const [sortDir, setSortDir]   = useState<'asc' | 'desc'>('desc');
-  const [page, setPage]         = useState(1);
+  const [allTxns, setAllTxns]         = useState<Transaction[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [search, setSearch]           = useState('');
+  const [filterBank, setFilterBank]   = useState('All banks');
+  const [filterMonth, setFilterMonth] = useState('All months');
+  const [sortKey, setSortKey]         = useState('date');
+  const [sortDir, setSortDir]         = useState<'asc' | 'desc'>('desc');
+  const [page, setPage]               = useState(1);
   const perPage = 50;
 
   useEffect(() => {
@@ -101,17 +102,30 @@ export function Payments({ year = 0, month = 0 }: { year?: number; month?: numbe
     return () => { cancelled = true; };
   }, [year, month]);
 
-  useEffect(() => { setPage(1); }, [search, filterBank]);
+  useEffect(() => { setPage(1); }, [search, filterBank, filterMonth]);
 
   const allBanks = useMemo(() =>
     Array.from(new Set(allTxns.map(t => (t.bank as {name?:string}|null)?.name ?? '').filter(Boolean))).sort(),
     [allTxns]
   );
 
+  const { allMonths, monthLabelToYM } = useMemo(() => {
+    const rawSet = Array.from(new Set(allTxns.map(t => t.date.slice(0, 7)))).sort().reverse();
+    const labels = rawSet.map(ym => {
+      const d = new Date(ym + '-02');
+      return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    });
+    const lookup: Record<string, string> = {};
+    rawSet.forEach((ym, i) => { lookup[labels[i]] = ym; });
+    return { allMonths: labels, monthLabelToYM: lookup };
+  }, [allTxns]);
+
   const filtered = useMemo(() => {
+    const ym = filterMonth !== 'All months' ? (monthLabelToYM[filterMonth] ?? null) : null;
     let out = allTxns.filter(t => {
       const bankName = (t.bank as {name?:string}|null)?.name ?? '';
       if (filterBank !== 'All banks' && bankName !== filterBank) return false;
+      if (ym && !t.date.startsWith(ym)) return false;
       if (search) {
         const q = search.toLowerCase();
         if (!bankName.toLowerCase().includes(q) && !(t.description ?? '').toLowerCase().includes(q)) return false;
@@ -125,7 +139,7 @@ export function Payments({ year = 0, month = 0 }: { year?: number; month?: numbe
       if (sortKey === 'bank')   return (((a.bank as {name?:string}|null)?.name ?? '') > ((b.bank as {name?:string}|null)?.name ?? '') ? 1 : -1) * dir;
       return 0;
     });
-  }, [allTxns, search, filterBank, sortKey, sortDir]);
+  }, [allTxns, search, filterBank, filterMonth, monthLabelToYM, sortKey, sortDir]);
 
   const toggleSort = (k: string) => {
     if (sortKey === k) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -142,7 +156,6 @@ export function Payments({ year = 0, month = 0 }: { year?: number; month?: numbe
   const avgAmount   = filtered.length ? totalAmount / filtered.length : 0;
   const largest     = filtered.length ? Math.max(...filtered.map(t => Math.abs(t.amount))) : 0;
 
-  // By bank breakdown
   const byBank = useMemo(() => {
     const map: Record<string, { total: number; count: number }> = {};
     filtered.forEach(t => {
@@ -153,6 +166,9 @@ export function Payments({ year = 0, month = 0 }: { year?: number; month?: numbe
     });
     return Object.entries(map).map(([name, v]) => ({ name, ...v })).sort((a,b) => b.total - a.total);
   }, [filtered]);
+
+  const hasFilter = search || filterBank !== 'All banks' || filterMonth !== 'All months';
+  const clearAll = () => { setSearch(''); setFilterBank('All banks'); setFilterMonth('All months'); };
 
   const thStyle: React.CSSProperties = {
     textAlign: 'left', padding: '12px 10px',
@@ -165,10 +181,10 @@ export function Payments({ year = 0, month = 0 }: { year?: number; month?: numbe
 
       {/* KPI strip */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
-        <KpiMini label="Payments"     value={filtered.length.toLocaleString()} sub={search || filterBank !== 'All banks' ? 'of ' + allTxns.length + ' total' : 'All-time history'} color="var(--brand)" />
-        <KpiMini label="Total volume" value={fmt$(totalAmount)}                sub={filtered.length + ' payments'} color="var(--green)" />
-        <KpiMini label="Avg payment"  value={fmt$(avgAmount)}                  sub="Per transaction"   color="#4BA3F7" />
-        <KpiMini label="Largest"      value={fmt$(largest)}                    sub="Single payment"    color="var(--red)" />
+        <KpiMini label="Payments"     value={filtered.length.toLocaleString()} sub={hasFilter ? 'of ' + allTxns.length + ' total' : 'All-time history'} color="var(--brand)" />
+        <KpiMini label="Total volume" value={fmt$(totalAmount)}                sub={filtered.length + ' payments'}  color="var(--green)" />
+        <KpiMini label="Avg payment"  value={fmt$(avgAmount)}                  sub="Per transaction"                color="#4BA3F7" />
+        <KpiMini label="Largest"      value={fmt$(largest)}                    sub="Single payment"                 color="var(--red)" />
       </div>
 
       {/* By bank breakdown */}
@@ -185,10 +201,13 @@ export function Payments({ year = 0, month = 0 }: { year?: number; month?: numbe
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--ink)', fontWeight: 500 }}>
                       <span style={{ width: 10, height: 10, borderRadius: 3, background: c, display: 'inline-block' }} />
                       {b.name}
-                      <span style={{ color: 'var(--ink-muted)', fontWeight: 400 }}>· {b.count} payments</span>
+                      <span style={{ color: 'var(--ink-muted)', fontWeight: 400 }}>
+                        {'- ' + b.count + ' payments'}
+                      </span>
                     </span>
                     <span style={{ color: 'var(--ink)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-                      {fmt$(b.total)} <span style={{ color: 'var(--ink-muted)', fontWeight: 500 }}>· {pct.toFixed(1)}%</span>
+                      {fmt$(b.total)}
+                      <span style={{ color: 'var(--ink-muted)', fontWeight: 500 }}>{' - ' + pct.toFixed(1) + '%'}</span>
                     </span>
                   </div>
                   <div style={{ height: 6, background: 'var(--bg)', borderRadius: 999, overflow: 'hidden' }}>
@@ -213,11 +232,17 @@ export function Payments({ year = 0, month = 0 }: { year?: number; month?: numbe
           borderRadius: 999, padding: '7px 14px', minWidth: 220,
         }}>
           <Icon name="search" size={13} stroke="var(--ink-muted)" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search bank or description…"
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search bank or description"
             style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: 12.5, color: 'var(--ink)', flex: 1, fontFamily: 'inherit' }} />
-          {search && <span onClick={() => setSearch('')} style={{ color: 'var(--ink-muted)', cursor: 'pointer', fontSize: 14 }}>×</span>}
+          {search && <span onClick={() => setSearch('')} style={{ color: 'var(--ink-muted)', cursor: 'pointer', fontSize: 14 }}>x</span>}
         </div>
-        <Dropdown label="Bank" value={filterBank} options={['All banks', ...allBanks]} onChange={setFilterBank} />
+        <Dropdown label="Bank"  value={filterBank}  options={['All banks',   ...allBanks]}   onChange={setFilterBank} />
+        <Dropdown label="Month" value={filterMonth} options={['All months', ...allMonths]}   onChange={setFilterMonth} />
+        {hasFilter && (
+          <div onClick={clearAll} style={{ color: 'var(--brand)', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', padding: '7px 10px' }}>
+            Clear filters
+          </div>
+        )}
         <div style={{ flex: 1 }} />
         <div style={{ fontSize: 11.5, color: 'var(--ink-soft)' }}>
           Showing <b style={{ color: 'var(--ink)' }}>{filtered.length.toLocaleString()}</b> of <b style={{ color: 'var(--ink)' }}>{allTxns.length.toLocaleString()}</b> payments
@@ -237,13 +262,13 @@ export function Payments({ year = 0, month = 0 }: { year?: number; month?: numbe
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={3} style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--ink-muted)' }}>Loading payments…</td></tr>
+                <tr><td colSpan={3} style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--ink-muted)' }}>Loading payments</td></tr>
               )}
               {!loading && pageRows.length === 0 && (
                 <tr><td colSpan={3} style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--ink-muted)' }}>No payments match these filters.</td></tr>
               )}
               {!loading && pageRows.map((t, i) => {
-                const bankName = (t.bank as {name?:string}|null)?.name ?? '–';
+                const bankName = (t.bank as {name?:string}|null)?.name ?? '';
                 return (
                   <tr key={t.id} style={{ background: i % 2 ? 'var(--bg)' : 'var(--surface)' }}>
                     <td style={{ padding: '11px 10px', color: 'var(--ink-soft)', borderBottom: '1px solid var(--line)', whiteSpace: 'nowrap' }}>{fmtDate(t.date)}</td>
@@ -264,16 +289,18 @@ export function Payments({ year = 0, month = 0 }: { year?: number; month?: numbe
           padding: '12px 18px', borderTop: '1px solid var(--line)', background: 'var(--surface)', gap: 10,
         }}>
           <div style={{ fontSize: 11.5, color: 'var(--ink-soft)' }}>
-            {loading ? 'Loading…' : (<>
-              Page <b style={{ color: 'var(--ink)' }}>{safeP}</b> of <b style={{ color: 'var(--ink)' }}>{totalPages}</b>
-              {' '}· {startIdx}–{endIdx} of {filtered.length.toLocaleString()}
-            </>)}
+            {loading ? 'Loading' : (
+              <span>
+                Page <b style={{ color: 'var(--ink)' }}>{safeP}</b> of <b style={{ color: 'var(--ink)' }}>{totalPages}</b>
+                {' - '}{startIdx}-{endIdx} of {filtered.length.toLocaleString()}
+              </span>
+            )}
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
-            <PageBtn disabled={safeP === 1}          onClick={() => setPage(1)}          label="«" />
-            <PageBtn disabled={safeP === 1}          onClick={() => setPage(p => Math.max(1, p-1))} label="‹ Prev" />
-            <PageBtn disabled={safeP === totalPages} onClick={() => setPage(p => Math.min(totalPages, p+1))} label="Next ›" />
-            <PageBtn disabled={safeP === totalPages} onClick={() => setPage(totalPages)} label="»" />
+            <PageBtn disabled={safeP === 1}          onClick={() => setPage(1)}                              label="First" />
+            <PageBtn disabled={safeP === 1}          onClick={() => setPage(p => Math.max(1, p-1))}          label="Prev" />
+            <PageBtn disabled={safeP === totalPages} onClick={() => setPage(p => Math.min(totalPages, p+1))} label="Next" />
+            <PageBtn disabled={safeP === totalPages} onClick={() => setPage(totalPages)}                     label="Last" />
           </div>
         </div>
       </div>
