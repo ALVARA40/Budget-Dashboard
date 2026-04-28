@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { fmt$ } from '../lib/format';
 import { Icon } from '../components/ui/Icon';
+import { Dropdown } from '../components/ui/Dropdown';
 import type { Transaction } from '../types/index';
 
 const BATCH = 1000;
@@ -18,24 +19,6 @@ function KpiMini({ label, value, sub, color }: { label: string; value: string; s
       <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', fontWeight: 500 }}>{label}</div>
       <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.02em', marginTop: 8 }}>{value}</div>
       <div style={{ fontSize: 11, color, marginTop: 4, fontWeight: 600 }}>{sub}</div>
-    </div>
-  );
-}
-
-function Dropdown({ label, value, options, onChange }: {
-  label: string; value: string; options: string[]; onChange: (v: string) => void;
-}) {
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 6,
-      background: 'var(--surface)', border: '1px solid var(--line)',
-      borderRadius: 999, padding: '7px 14px',
-    }}>
-      {label && <span style={{ fontSize: 11.5, color: 'var(--ink-soft)', fontWeight: 500 }}>{label}:</span>}
-      <select value={value} onChange={e => onChange(e.target.value)}
-        style={{ border: 'none', background: 'none', fontFamily: 'inherit', fontSize: 12, color: 'var(--ink)', cursor: 'pointer', outline: 'none', fontWeight: 500 }}>
-        {options.map(o => <option key={o} value={o}>{o}</option>)}
-      </select>
     </div>
   );
 }
