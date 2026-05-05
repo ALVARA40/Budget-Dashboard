@@ -12,7 +12,6 @@ function fmtDateShort(iso: string) {
 
 const BATCH = 1000;
 
-// ─── KpiMini ──────────────────────────────────────────────────────────────────
 function KpiMini({ label, value, sub, color }: { label: string; value: string; sub: string; color: string }) {
   return (
     <div className="card" style={{ padding: '16px 18px' }}>
@@ -23,7 +22,6 @@ function KpiMini({ label, value, sub, color }: { label: string; value: string; s
   );
 }
 
-// ─── SortHeader ───────────────────────────────────────────────────────────────
 function SortHeader({ label, sortKey, currentKey, dir, onSort, align = 'left' }: {
   label: string; sortKey: string; currentKey: string; dir: 'asc' | 'desc';
   onSort: (k: string) => void; align?: 'left' | 'right';
@@ -59,19 +57,19 @@ function PageBtn({ disabled, onClick, label }: { disabled: boolean; onClick: () 
   );
 }
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
 export function BudgetTracking({ year = 0, month = 0 }: { year?: number; month?: number }) {
-  const [allTxns, setAllTxns]       = useState<Transaction[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [search, setSearch]         = useState('');
-  const [filterKind, setFilterKind] = useState('All types');
-  const [filterCat, setFilterCat]   = useState('All categories');
-  const [filterBank, setFilterBank] = useState('All banks');
-  const [sortKey, setSortKey]       = useState('date');
-  const [sortDir, setSortDir]       = useState<'asc' | 'desc'>('desc');
-  const [page, setPage]             = useState(1);
-  const [perPage, setPerPage]       = useState(50);
-  const [dense, setDense]           = useState(false);
+  const [allTxns, setAllTxns]         = useState<Transaction[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [search, setSearch]           = useState('');
+  const [filterKind, setFilterKind]   = useState('All types');
+  const [filterCat, setFilterCat]     = useState('All categories');
+  const [filterBank, setFilterBank]   = useState('All banks');
+  const [filterMonth, setFilterMonth] = useState('All months');
+  const [sortKey, setSortKey]         = useState('date');
+  const [sortDir, setSortDir]         = useState<'asc' | 'desc'>('desc');
+  const [page, setPage]               = useState(1);
+  const [perPage, setPerPage]         = useState(50);
+  const [dense, setDense]             = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,25 +103,50 @@ export function BudgetTracking({ year = 0, month = 0 }: { year?: number; month?:
     return () => { cancelled = true; };
   }, [year, month]);
 
-  useEffect(() => { setPage(1); }, [search, filterKind, filterCat, filterBank, perPage]);
+  useEffect(() => { setPage(1); }, [search, filterKind, filterCat, filterBank, filterMonth, perPage]);
 
   const allCats  = useMemo(() => Array.from(new Set(allTxns.map(t => (t.category as {name?:string}|null)?.name ?? '').filter(Boolean))).sort(), [allTxns]);
   const allBanks = useMemo(() => Array.from(new Set(allTxns.map(t => (t.bank as {name?:string}|null)?.name ?? '').filter(Boolean))).sort(), [allTxns]);
 
-  const hasFilter = search || filterKind !== 'All types' || filterCat !== 'All categories' || filterBank !== 'All banks';
-  const clearAll = () => { setSearch(''); setFilterKind('All types'); setFilterCat('All categories'); setFilterBank('All banks'); };
+  const { allMonths, monthLabelToYM } = useMemo(() => {
+    const ymSet = new Set<string>();
+    allTxns.forEach(t => { if (t.date) ymSet.add(t.date.slice(0, 7)); });
+    const sorted = Array.from(ymSet).sort().reverse();
+    const lookup: Record<string, string> = {};
+    sorted.forEach(ym => {
+      const [y2, m2] = ym.split('-').map(Number);
+      const label = new Date(y2, m2 - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      lookup[label] = ym;
+    });
+    return { allMonths: sorted, monthLabelToYM: lookup };
+  }, [allTxns]);
+
+  const monthOptions = useMemo(() => [
+    'All months',
+    ...allMonths.map(ym => {
+      const [y2, m2] = ym.split('-').map(Number);
+      return new Date(y2, m2 - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    }),
+  ], [allMonths]);
+
+  const hasFilter = search || filterKind !== 'All types' || filterCat !== 'All categories' || filterBank !== 'All banks' || filterMonth !== 'All months';
+  const clearAll = () => { setSearch(''); setFilterKind('All types'); setFilterCat('All categories'); setFilterBank('All banks'); setFilterMonth('All months'); };
 
   const filtered = useMemo(() => {
     let out = allTxns.filter(t => {
-      const kind    = (t.category as {kind?:string}|null)?.kind ?? '';
-      const catName = (t.category as {name?:string}|null)?.name ?? '';
-      const bankName= (t.bank    as {name?:string}|null)?.name ?? '';
+      const kind     = (t.category as {kind?:string}|null)?.kind ?? '';
+      const catName  = (t.category as {name?:string}|null)?.name ?? '';
+      const bankName = (t.bank    as {name?:string}|null)?.name ?? '';
 
       if (filterKind === 'Income'   && kind !== 'income')  return false;
       if (filterKind === 'Expenses' && (kind === 'income' || kind === 'savings')) return false;
       if (filterKind === 'Savings'  && kind !== 'savings') return false;
       if (filterCat  !== 'All categories' && catName !== filterCat)  return false;
       if (filterBank !== 'All banks'      && bankName !== filterBank) return false;
+      if (filterMonth !== 'All months') {
+        const ym = monthLabelToYM[filterMonth];
+        if (ym && !t.date.startsWith(ym)) return false;
+      }
       if (search) {
         const q = search.toLowerCase();
         const desc = (t.description ?? '').toLowerCase();
@@ -140,10 +163,11 @@ export function BudgetTracking({ year = 0, month = 0 }: { year?: number; month?:
       if (sortKey === 'cat')    return (((a.category as {name?:string}|null)?.name ?? '') > ((b.category as {name?:string}|null)?.name ?? '') ? 1 : -1) * dir;
       if (sortKey === 'bank')   return (((a.bank as {name?:string}|null)?.name ?? '') > ((b.bank as {name?:string}|null)?.name ?? '') ? 1 : -1) * dir;
       if (sortKey === 'desc')   return ((a.description ?? '') > (b.description ?? '') ? 1 : -1) * dir;
+      if (sortKey === 'comp')   return (((a.company as {name?:string}|null)?.name ?? '') > ((b.company as {name?:string}|null)?.name ?? '') ? 1 : -1) * dir;
       return 0;
     });
     return out;
-  }, [allTxns, search, filterKind, filterCat, filterBank, sortKey, sortDir]);
+  }, [allTxns, search, filterKind, filterCat, filterBank, filterMonth, monthLabelToYM, sortKey, sortDir]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
   const safeP      = Math.min(page, totalPages);
@@ -152,7 +176,7 @@ export function BudgetTracking({ year = 0, month = 0 }: { year?: number; month?:
   const endIdx     = Math.min(safeP * perPage, filtered.length);
 
   const totalIncome   = filtered.filter(t => t.amount > 0).reduce((s,t) => s + t.amount, 0);
-  const totalExpenses = filtered.filter(t => t.amount < 0).reduce((s,t) => s + Math.abs(t.amount), 0);
+  const totalExpenses = filtered.filter(t => t.amount < 0 && (t.category as {kind?:string}|null)?.kind !== 'savings').reduce((s,t) => s + Math.abs(t.amount), 0);
   const totalSavings  = filtered.filter(t => (t.category as {kind?:string}|null)?.kind === 'savings').reduce((s,t) => s + Math.abs(t.amount), 0);
 
   const toggleSort = (k: string) => {
@@ -161,15 +185,19 @@ export function BudgetTracking({ year = 0, month = 0 }: { year?: number; month?:
   };
 
   const exportCSV = () => {
-    const hdr = ['Date','Description','Category','Bank','Company','Amount'];
-    const rows = filtered.map(t => [
-      t.date,
-      t.description,
-      (t.category as {name?:string}|null)?.name ?? '',
-      (t.bank     as {name?:string}|null)?.name ?? '',
-      (t.company  as {name?:string}|null)?.name ?? '',
-      t.amount.toFixed(2),
-    ]);
+    const hdr = ['Date','Description','Category','Bank','Company','Type','Amount'];
+    const rows = filtered.map(t => {
+      const kind = (t.category as {kind?:string}|null)?.kind ?? '';
+      return [
+        t.date,
+        t.description,
+        (t.category as {name?:string}|null)?.name ?? '',
+        (t.bank     as {name?:string}|null)?.name ?? '',
+        (t.company  as {name?:string}|null)?.name ?? '',
+        kind === 'income' ? 'Income' : kind === 'savings' ? 'Savings' : 'Expense',
+        t.amount.toFixed(2),
+      ];
+    });
     const csv = [hdr, ...rows].map(r => r.map(x => '"' + String(x).replace(/"/g,'""') + '"').join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url  = URL.createObjectURL(blob);
@@ -193,9 +221,9 @@ export function BudgetTracking({ year = 0, month = 0 }: { year?: number; month?:
 
       {/* KPI strip */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
-        <KpiMini label="Transactions" value={filtered.length.toLocaleString()} sub={hasFilter ? 'of ' + allTxns.length.toLocaleString() + ' total' : 'All loaded'} color="var(--brand)" />
+        <KpiMini label="Transactions" value={filtered.length.toLocaleString()} sub={hasFilter ? 'of ' + allTxns.length.toLocaleString() + ' total' : 'All months'} color="var(--brand)" />
         <KpiMini label="Income"       value={fmt$(totalIncome)}   sub={filtered.filter(t=>t.amount>0).length + ' transactions'} color="var(--green)" />
-        <KpiMini label="Expenses"     value={fmt$(totalExpenses)} sub={filtered.filter(t=>t.amount<0).length + ' transactions'} color="var(--red)" />
+        <KpiMini label="Expenses"     value={fmt$(totalExpenses)} sub={filtered.filter(t=>t.amount<0 && (t.category as {kind?:string}|null)?.kind !== 'savings').length + ' transactions'} color="var(--red)" />
         <KpiMini label="Savings"      value={fmt$(totalSavings)}  sub={filtered.filter(t=>(t.category as {kind?:string}|null)?.kind==='savings').length + ' transactions'} color="#4BA3F7" />
       </div>
 
@@ -219,9 +247,10 @@ export function BudgetTracking({ year = 0, month = 0 }: { year?: number; month?:
             {search && <span onClick={() => setSearch('')} style={{ color: 'var(--ink-muted)', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>×</span>}
           </div>
 
-          <Dropdown label="Type"     value={filterKind} options={['All types','Income','Expenses','Savings']} onChange={setFilterKind} />
-          <Dropdown label="Category" value={filterCat}  options={['All categories', ...allCats]}             onChange={setFilterCat} />
-          <Dropdown label="Bank"     value={filterBank} options={['All banks', ...allBanks]}                 onChange={setFilterBank} />
+          <Dropdown label="Category" value={filterCat}   options={['All categories', ...allCats]}        onChange={setFilterCat} />
+          <Dropdown label="Bank"     value={filterBank}  options={['All banks', ...allBanks]}            onChange={setFilterBank} />
+          <Dropdown label="Type"     value={filterKind}  options={['All types','Income','Expenses','Savings']} onChange={setFilterKind} />
+          <Dropdown label="Month"    value={filterMonth} options={monthOptions}                          onChange={setFilterMonth} />
 
           {hasFilter && (
             <div onClick={clearAll} style={{ color: 'var(--brand)', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', padding: '7px 10px' }}>
@@ -261,16 +290,17 @@ export function BudgetTracking({ year = 0, month = 0 }: { year?: number; month?:
                 <th style={thStyle}                   ><SortHeader label="DESCRIPTION" sortKey="desc"   currentKey={sortKey} dir={sortDir} onSort={toggleSort} /></th>
                 <th style={{ ...thStyle, width: 170 }}><SortHeader label="CATEGORY"   sortKey="cat"    currentKey={sortKey} dir={sortDir} onSort={toggleSort} /></th>
                 <th style={{ ...thStyle, width: 150 }}><SortHeader label="BANK"       sortKey="bank"   currentKey={sortKey} dir={sortDir} onSort={toggleSort} /></th>
+                <th style={{ ...thStyle, width: 150 }}><SortHeader label="COMPANY"    sortKey="comp"   currentKey={sortKey} dir={sortDir} onSort={toggleSort} /></th>
                 <th style={{ ...thStyle, width: 100 }}>TYPE</th>
                 <th style={{ ...thStyle, width: 130, textAlign: 'right' }}><SortHeader label="AMOUNT" sortKey="amount" currentKey={sortKey} dir={sortDir} onSort={toggleSort} align="right" /></th>
               </tr>
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={6} style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--ink-muted)' }}>Loading transactions…</td></tr>
+                <tr><td colSpan={7} style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--ink-muted)' }}>Loading transactions…</td></tr>
               )}
               {!loading && pageRows.length === 0 && (
-                <tr><td colSpan={6} style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--ink-muted)' }}>
+                <tr><td colSpan={7} style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--ink-muted)' }}>
                   No transactions match these filters.{' '}
                   {hasFilter && <span onClick={clearAll} style={{ color: 'var(--brand)', fontWeight: 600, cursor: 'pointer' }}>Clear filters</span>}
                 </td></tr>
@@ -279,6 +309,7 @@ export function BudgetTracking({ year = 0, month = 0 }: { year?: number; month?:
                 const kind     = (t.category as {kind?:string}|null)?.kind ?? '';
                 const catName  = (t.category as {name?:string}|null)?.name ?? '–';
                 const bankName = (t.bank     as {name?:string}|null)?.name ?? '–';
+                const compName = (t.company  as {name?:string}|null)?.name ?? '–';
                 const cc = catColor(kind);
                 const typeLabel = kind === 'income' ? 'Income' : kind === 'savings' ? 'Savings' : 'Expense';
                 const typeDot   = kind === 'income' ? 'var(--green)' : kind === 'savings' ? '#4BA3F7' : 'var(--red)';
@@ -290,6 +321,7 @@ export function BudgetTracking({ year = 0, month = 0 }: { year?: number; month?:
                       <span style={{ fontSize: 11, padding: '3px 9px', borderRadius: 999, background: cc + '20', color: cc, fontWeight: 600 }}>{catName}</span>
                     </td>
                     <td style={{ padding: tdP, color: 'var(--ink-soft)', borderBottom: '1px solid var(--line)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 140 }}>{bankName}</td>
+                    <td style={{ padding: tdP, color: 'var(--ink-soft)', borderBottom: '1px solid var(--line)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 140 }}>{compName}</td>
                     <td style={{ padding: tdP, borderBottom: '1px solid var(--line)' }}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--ink-soft)', fontSize: 11.5 }}>
                         <span style={{ width: 7, height: 7, borderRadius: 999, background: typeDot, display: 'inline-block' }} />

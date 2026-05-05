@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const CURRENT_MONTH_IDX = 3; // April
@@ -110,6 +111,34 @@ export function BudgetPlanning({ year: _year = 2026 }: { year?: number; month?: 
   const [priorYears, setPriorYears] = useState(true);
   const [monthsExpanded, setMonthsExpanded] = useState(true);
   const [edits, setEdits]     = useState<Record<string, number>>({});
+  // Actual prior-year totals from Supabase, keyed by category name
+  const [actuals, setActuals] = useState<Record<string, { y2024: number; y2025: number }>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadActuals() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const { data } = await supabase
+        .from('transactions')
+        .select('date, amount, category:categories(name)')
+        .eq('user_id', session.user.id)
+        .gte('date', '2024-01-01')
+        .lte('date', '2025-12-31');
+      if (cancelled || !data) return;
+      const map: Record<string, { y2024: number; y2025: number }> = {};
+      (data as any[]).forEach(t => {
+        const name = t.category?.name ?? 'Other';
+        const y = new Date(t.date + 'T12:00:00').getFullYear();
+        if (!map[name]) map[name] = { y2024: 0, y2025: 0 };
+        if (y === 2024) map[name].y2024 += Math.abs(t.amount);
+        if (y === 2025) map[name].y2025 += Math.abs(t.amount);
+      });
+      setActuals(map);
+    }
+    loadActuals();
+    return () => { cancelled = true; };
+  }, []);
 
   const editCount = Object.keys(edits).length;
 
@@ -134,11 +163,15 @@ export function BudgetPlanning({ year: _year = 2026 }: { year?: number; month?: 
   const toggleGroup = (k: keyof typeof groups) =>
     setGroups(g => ({ ...g, [k]: !g[k] }));
 
+  // Resolve actual prior-year values (Supabase if available, else hardcoded fallback)
+  const getActual = (name: string, yr: 'y2024' | 'y2025', fallback: number) =>
+    actuals[name] ? Math.round(actuals[name][yr]) : fallback;
+
   // Totals (edits flow into subtotals & NET row)
   function sumGroup(rows: PlanRow[], groupKey: string) {
     return {
-      y2024:   rows.reduce((s, r) => s + r.y2024, 0),
-      y2025:   rows.reduce((s, r) => s + r.y2025, 0),
+      y2024:   rows.reduce((s, r) => s + getActual(r.name, 'y2024', r.y2024), 0),
+      y2025:   rows.reduce((s, r) => s + getActual(r.name, 'y2025', r.y2025), 0),
       monthly: MONTHS.map((_, mi) => rows.reduce((s, r) => s + getValue(groupKey, r, mi), 0)),
       year:    rows.reduce((s, r) => s + MONTHS.reduce((_a, _m, mi) => _a + getValue(groupKey, r, mi), 0), 0),
     };
@@ -324,8 +357,8 @@ export function BudgetPlanning({ year: _year = 2026 }: { year?: number; month?: 
           {row.name}
         </td>
         {priorYears && <>
-          <td style={cellStyle(pal)}>{fmt(row.y2024)}</td>
-          <td style={cellStyle(pal)}>{fmt(row.y2025)}</td>
+          <td style={cellStyle(pal)}>{fmt(getActual(row.name, 'y2024', row.y2024))}</td>
+          <td style={cellStyle(pal)}>{fmt(getActual(row.name, 'y2025', row.y2025))}</td>
         </>}
         {monthsExpanded && MONTHS.map((m, mi) => (
           <EditableCell key={m} group={groupKey} row={row} mi={mi} pal={pal} />
