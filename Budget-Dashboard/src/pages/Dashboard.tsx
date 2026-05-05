@@ -7,8 +7,12 @@ import { DeltaPill } from '../components/ui/DeltaPill';
 import { Icon } from '../components/ui/Icon';
 import { fmt$, fmtPct, fmtDate } from '../lib/format';
 import { useDashboardData } from '../lib/useData';
-import { STATIC_GOALS } from '../lib/staticData';
-import type { CategoryBreakdownItem } from '../types/index';
+import {
+  STATIC_GOALS,
+  STATIC_INCOME_CATEGORIES, STATIC_EXPENSE_CATEGORIES,
+  STATIC_SAVINGS_CATEGORIES, STATIC_TRACKED_VS_BUDGET,
+} from '../lib/staticData';
+import type { CategoryBreakdownItem, TrackedVsBudgetMonth } from '../types/index';
 
 // ── KPI Card with interactive sparkline ──────────────────────────────────────
 function KpiCard({
@@ -212,17 +216,17 @@ function SavingsGoalsCard() {
 }
 
 // ── Tracked vs Budget Chart with hover ───────────────────────────────────────
-type TvbRow = { m: string; income: number; expenses: number; savings: number; budgetIncome?: number; budgetExpenses?: number; budgetSavings?: number };
-function TrackedVsBudget({ data, currentMonth = 'Apr' }: { data: TvbRow[]; currentMonth?: string }) {
+function TrackedVsBudget({ data, currentMonth = 'Apr' }: { data: TrackedVsBudgetMonth[]; currentMonth?: string }) {
   const [hover, setHover] = useState<{ i: number; key: string } | null>(null);
 
   const seriesDef = [
-    { key: 'income'   as const, label: 'Income',   dark: '#2FB37A', light: '#CFEADF' },
-    { key: 'expenses' as const, label: 'Expenses', dark: '#D8443F', light: '#F5C9C7' },
-    { key: 'savings'  as const, label: 'Savings',  dark: '#1F3F8A', light: '#CCD4E8' },
-  ];
+    { key: 'income',   label: 'Income',   dark: '#2FB37A', light: '#CFEADF' },
+    { key: 'expenses', label: 'Expenses', dark: '#D8443F', light: '#F5C9C7' },
+    { key: 'savings',  label: 'Savings',  dark: '#1F3F8A', light: '#CCD4E8' },
+  ] as const;
+  const sharePerSeries = { income: 0.586, expenses: 0.245, savings: 0.169 };
   const allValues: number[] = [];
-  data.forEach(d => { seriesDef.forEach(s => { allValues.push(d[s.key]); }); });
+  data.forEach(d => { seriesDef.forEach(s => { allValues.push(d.budget * sharePerSeries[s.key], d[s.key]); }); });
   const niceMax = Math.ceil(Math.max(...allValues) / 10000) * 10000;
   const tickCount = 9;
   const ticks = Array.from({ length: tickCount + 1 }, (_, i) => Math.round((niceMax / tickCount) * i));
@@ -256,10 +260,11 @@ function TrackedVsBudget({ data, currentMonth = 'Apr' }: { data: TvbRow[]; curre
             {data.map((d, i) => (
               <div key={i} style={{ flex: 1, height: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 3, position: 'relative' }}>
                 {seriesDef.map(s => {
+                  const budgetVal = d.budget * sharePerSeries[s.key];
                   const trackedVal = d[s.key];
-                  const barTotalH = trackedVal;
+                  const barTotalH = Math.max(budgetVal, trackedVal);
                   const darkH = trackedVal;
-                  const lightH = 0;
+                  const lightH = Math.max(0, budgetVal - trackedVal);
                   const isHover = hover?.i === i && hover?.key === s.key;
                   return (
                     <div
@@ -288,6 +293,7 @@ function TrackedVsBudget({ data, currentMonth = 'Apr' }: { data: TvbRow[]; curre
                           <div style={{ fontSize: 9.5, color: '#BFB6F5', letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 3 }}>{d.m} · {s.label}</div>
                           <div style={{ display: 'flex', gap: 10, fontVariantNumeric: 'tabular-nums' }}>
                             <span>Tracked: <b>${trackedVal.toLocaleString()}</b></span>
+                            <span style={{ color: '#BFB6F5' }}>Budget: ${Math.round(budgetVal).toLocaleString()}</span>
                           </div>
                         </div>
                       )}
@@ -356,7 +362,7 @@ function CategoryCard({ title, accent, categories }: { title: string; accent: st
 
 // ── Dashboard Page ────────────────────────────────────────────────────────────
 export function Dashboard({ year = 2026, month = 4 }: { year?: number; month?: number }) {
-  const { kpi, flow, split, budget, transactions, incomeCategories, expenseCategories, savingsCategories, trackedVsBudget, loading } = useDashboardData(year, month);
+  const { kpi, flow, split, budget, transactions, loading } = useDashboardData(year, month);
   const [summaryOpen, setSummaryOpen] = useState(true);
 
   const incomeTrend  = flow.map(f => f.income);
@@ -473,16 +479,11 @@ export function Dashboard({ year = 2026, month = 4 }: { year?: number; month?: n
         </div>
         {summaryOpen && (
           <>
-            <TrackedVsBudget
-              data={trackedVsBudget.length > 0 ? trackedVsBudget : []}
-              currentMonth={new Date(year, month - 1, 1).toLocaleString('en-US', { month: 'short' })}
-            />
+            <TrackedVsBudget data={STATIC_TRACKED_VS_BUDGET} currentMonth="Apr" />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-              <CategoryCard title="Income"   accent="#2FB37A" categories={incomeCategories.length  > 0 ? incomeCategories  : [{ name: 'No data', value: 1, color: '#ECEAF4' }]} />
-              <CategoryCard title="Expenses" accent="#D8443F" categories={expenseCategories.length > 0 ? expenseCategories : [{ name: 'No data', value: 1, color: '#ECEAF4' }]} />
-              <CategoryCard title="Income"   accent="#2FB37A" categories={incomeCategories.length  > 0 ? incomeCategories  : [{ name: 'No data', value: 1, color: '#ECEAF4' }]} />
-              <CategoryCard title="Expenses" accent="#D8443F" categories={expenseCategories.length > 0 ? expenseCategories : [{ name: 'No data', value: 1, color: '#ECEAF4' }]} />
-              <CategoryCard title="Savings"  accent="#1F3F8A" categories={savingsCategories.length > 0 ? savingsCategories : [{ name: 'No data', value: 1, color: '#ECEAF4' }]} />
+              <CategoryCard title="Income"   accent="#2FB37A" categories={STATIC_INCOME_CATEGORIES} />
+              <CategoryCard title="Expenses" accent="#D8443F" categories={STATIC_EXPENSE_CATEGORIES} />
+              <CategoryCard title="Savings"  accent="#1F3F8A" categories={STATIC_SAVINGS_CATEGORIES} />
             </div>
           </>
         )}
