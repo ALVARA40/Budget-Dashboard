@@ -480,8 +480,6 @@ export function Dashboard({ year = 2026, month = 4 }: { year?: number; month?: n
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
               <CategoryCard title="Income"   accent="#2FB37A" categories={incomeCategories.length  > 0 ? incomeCategories  : [{ name: 'No data', value: 1, color: '#ECEAF4' }]} />
               <CategoryCard title="Expenses" accent="#D8443F" categories={expenseCategories.length > 0 ? expenseCategories : [{ name: 'No data', value: 1, color: '#ECEAF4' }]} />
-              <CategoryCard title="Income"   accent="#2FB37A" categories={incomeCategories.length  > 0 ? incomeCategories  : [{ name: 'No data', value: 1, color: '#ECEAF4' }]} />
-              <CategoryCard title="Expenses" accent="#D8443F" categories={expenseCategories.length > 0 ? expenseCategories : [{ name: 'No data', value: 1, color: '#ECEAF4' }]} />
               <CategoryCard title="Savings"  accent="#1F3F8A" categories={savingsCategories.length > 0 ? savingsCategories : [{ name: 'No data', value: 1, color: '#ECEAF4' }]} />
             </div>
           </>
