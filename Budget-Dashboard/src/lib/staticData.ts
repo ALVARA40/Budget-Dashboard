@@ -1,0 +1,204 @@
+// Static data seeded from the user's Excel file (April 2026).
+// The app renders this when Supabase is not yet connected.
+
+import type { KpiData, FlowMonth, SplitSegment, BudgetItem, Transaction } from '../types';
+
+export const STATIC_KPI: KpiData = {
+  income:      { value: 38632.12, delta: +6.4  },
+  expenses:    { value: 23285.07, delta: -2.1  },
+  savings:     { value:  9253.75, delta: +11.8 },
+  savingsRate: { value: 23.95,    delta: +3.2  },
+};
+
+export const STATIC_FLOW: FlowMonth[] = [
+  { m: 'Nov', income: 17504, expenses: 12378 },
+  { m: 'Dec', income: 18840, expenses: 12323 },
+  { m: 'Jan', income: 57207, expenses: 17916 },
+  { m: 'Feb', income: 18563, expenses: 22042 },
+  { m: 'Mar', income: 80607, expenses: 55685 },
+  { m: 'Apr', income: 38632, expenses: 23285 },
+];
+
+export const STATIC_SPLIT: SplitSegment[] = [
+  { key: 'needs',   label: 'Needs',   value: 12104.61, target: 50, actual: 52, color: '#7C5CFC' },
+  { key: 'wants',   label: 'Wants',   value:  6987.63, target: 30, actual: 30, color: '#F5B544' },
+  { key: 'savings', label: 'Savings', value:  4193.20, target: 20, actual: 18, color: '#33C58A' },
+];
+
+export const STATIC_BUDGET: BudgetItem[] = [
+  { name: 'Mortgage/Rent',        spent: 4433.48, budget: 4433.58, color: '#7C5CFC' },
+  { name: 'Federal Tax',          spent: 2666.80, budget: 2667.00, color: '#4BA3F7' },
+  { name: 'Groceries',            spent: 1194.56, budget:  850.00, color: '#F25F5C' },
+  { name: 'Social Security/FICA', spent: 1029.12, budget: 1029.40, color: '#9B7BFF' },
+  { name: 'Health Insurance',     spent:  735.10, budget:  735.10, color: '#33C58A' },
+  { name: 'Shopping',             spent:  612.00, budget:  550.00, color: '#F25F5C' },
+];
+
+function mkCat(name: string, color: string, kind: string, budget: number) {
+  return { id: '', user_id: '', name, color, kind: kind as 'income'|'need'|'want'|'savings', monthly_budget: budget };
+}
+function mkBank(name: string) {
+  return { id: '', user_id: '', name };
+}
+function mkCo(name: string) {
+  return { id: '', user_id: '', name };
+}
+
+export const STATIC_TRANSACTIONS: Transaction[] = [
+  {
+    id: '1', user_id: '', date: '2026-04-22', amount: -148.22,
+    description: 'Whole Foods Market', category_id: '', bank_id: '', company_id: '',
+    method: 'card', created_at: '',
+    category: mkCat('Groceries', '#9B7BFF', 'need', 850),
+    bank: mkBank('Chase'), company: mkCo('Whole Foods'),
+  },
+  {
+    id: '2', user_id: '', date: '2026-04-21', amount: 9413.00,
+    description: 'Work Income - Salary', category_id: '', bank_id: '', company_id: '',
+    method: 'transfer', created_at: '',
+    category: mkCat('Work Income', '#33C58A', 'income', 0),
+    bank: mkBank('Bank of America'), company: mkCo('Employer'),
+  },
+  {
+    id: '3', user_id: '', date: '2026-04-20', amount: -62.40,
+    description: 'Shell Gas Station', category_id: '', bank_id: '', company_id: '',
+    method: 'card', created_at: '',
+    category: mkCat('Fuel', '#F5B544', 'need', 150),
+    bank: mkBank('Chase'), company: mkCo('Shell'),
+  },
+  {
+    id: '4', user_id: '', date: '2026-04-19', amount: -214.88,
+    description: 'Amazon order', category_id: '', bank_id: '', company_id: '',
+    method: 'card', created_at: '',
+    category: mkCat('Shopping', '#4BA3F7', 'want', 550),
+    bank: mkBank('Chase'), company: mkCo('Amazon'),
+  },
+  {
+    id: '5', user_id: '', date: '2026-04-18', amount: -2100.00,
+    description: 'Chase Mortgage', category_id: '', bank_id: '', company_id: '',
+    method: 'transfer', created_at: '',
+    category: mkCat('Mortgage/Rent', '#7C5CFC', 'need', 4433),
+    bank: mkBank('Chase'), company: mkCo('Chase Bank'),
+  },
+  {
+    id: '6', user_id: '', date: '2026-04-17', amount: 1820.00,
+    description: 'Bancolombia Transfer', category_id: '', bank_id: '', company_id: '',
+    method: 'transfer', created_at: '',
+    category: mkCat('Other Income', '#33C58A', 'income', 0),
+    bank: mkBank('Bancolombia'), company: mkCo('Bancolombia'),
+  },
+  {
+    id: '7', user_id: '', date: '2026-04-16', amount: -22.99,
+    description: 'Netflix subscription', category_id: '', bank_id: '', company_id: '',
+    method: 'card', created_at: '',
+    category: mkCat('Streaming services', '#F25F5C', 'want', 50),
+    bank: mkBank('Chase'), company: mkCo('Netflix'),
+  },
+  {
+    id: '8', user_id: '', date: '2026-04-15', amount: -287.14,
+    description: 'Costco run', category_id: '', bank_id: '', company_id: '',
+    method: 'card', created_at: '',
+    category: mkCat('Groceries', '#9B7BFF', 'need', 850),
+    bank: mkBank('Chase'), company: mkCo('Costco'),
+  },
+  {
+    id: '9', user_id: '', date: '2026-04-14', amount: -495.78,
+    description: 'Car payment', category_id: '', bank_id: '', company_id: '',
+    method: 'transfer', created_at: '',
+    category: mkCat('Car Purchase', '#9B7BFF', 'need', 495),
+    bank: mkBank('Chase'), company: mkCo('Toyota Financial'),
+  },
+  {
+    id: '10', user_id: '', date: '2026-04-13', amount: -55.00,
+    description: 'Planet Fitness membership', category_id: '', bank_id: '', company_id: '',
+    method: 'card', created_at: '',
+    category: mkCat('Gym Membership', '#F5B544', 'want', 60),
+    bank: mkBank('Chase'), company: mkCo('Planet Fitness'),
+  },
+  {
+    id: '11', user_id: '', date: '2026-04-12', amount: 9413.00,
+    description: 'Business deposit', category_id: '', bank_id: '', company_id: '',
+    method: 'transfer', created_at: '',
+    category: mkCat('Business Income', '#33C58A', 'income', 0),
+    bank: mkBank('Bank of America'), company: mkCo('Self'),
+  },
+  {
+    id: '12', user_id: '', date: '2026-04-11', amount: -735.10,
+    description: 'Health insurance', category_id: '', bank_id: '', company_id: '',
+    method: 'transfer', created_at: '',
+    category: mkCat('Health Insurance', '#33C58A', 'need', 735),
+    bank: mkBank('Chase'), company: mkCo('Blue Cross'),
+  },
+  {
+    id: '13', user_id: '', date: '2026-04-10', amount: -487.00,
+    description: 'Dinner and drinks', category_id: '', bank_id: '', company_id: '',
+    method: 'card', created_at: '',
+    category: mkCat('Dining out', '#F5B544', 'want', 450),
+    bank: mkBank('Chase'), company: mkCo('Restaurant'),
+  },
+  {
+    id: '14', user_id: '', date: '2026-04-09', amount: -2000.00,
+    description: '401k contribution', category_id: '', bank_id: '', company_id: '',
+    method: 'transfer', created_at: '',
+    category: mkCat('401k', '#4BA3F7', 'savings', 2000),
+    bank: mkBank('Fidelity'), company: mkCo('Fidelity'),
+  },
+  {
+    id: '15', user_id: '', date: '2026-04-08', amount: -612.00,
+    description: 'Clothing and shoes', category_id: '', bank_id: '', company_id: '',
+    method: 'card', created_at: '',
+    category: mkCat('Shopping', '#4BA3F7', 'want', 550),
+    bank: mkBank('Chase'), company: mkCo('Macys'),
+  },
+];
+
+export const STATIC_GOALS = [
+  { id: '1', user_id: '', name: 'Emergency Fund',   target: 20000, current: 14820, deadline: null, color: '#7C5CFC' },
+  { id: '2', user_id: '', name: 'Vacation - Japan', target:  6000, current:  3240, deadline: null, color: '#33C58A' },
+  { id: '3', user_id: '', name: 'New Car',          target: 18000, current:  4100, deadline: null, color: '#F5B544' },
+];
+
+export const ALL_CATEGORIES = {
+  income:  ['Work Income','Business Income','Side Hustle Income','Investment Income','Other Income','Freelance Income','Rental Income','Dividend Income','Interest Income','Tax Refund'],
+  needs:   ['Mortgage/Rent','Federal Tax','Social Security/FICA','Health Insurance','Medicare','State Tax','Car Purchase','Car Insurance','Car Maintenance','Fuel','Groceries','Electricity','Water','Internet','Cell Phone','Home Insurance','Life Insurance','Dental Insurance','Vision Insurance','Medical/Doctor','Pharmacy','School Tuition','Student Loan','Child Care','Pet Food','Pet Vet','Minimum Debt Payment','Public Transit','Parking'],
+  wants:   ['Dining out','Coffee Shops','Shopping','Clothing','Electronics','Entertainment','Streaming services','Gaming','Hobbies','Gym Membership','Travel','Hotel','Flights','Gifts','Donations','Fast Food','Home Decor','Furniture','Car Wash','Other Subscriptions'],
+  savings: ['401k','Roth IRA','HSA','Emergency Fund','Investment Account','Savings Account','529 College Fund','Other Savings'],
+};
+
+export const STATIC_INCOME_CATEGORIES = [
+  { name: 'Other Income', value: 21127, color: '#2FB37A' },
+  { name: 'Work Income',  value: 17505, color: '#7FD4A7' },
+  { name: 'Other',        value:     0, color: '#ECEAF4' },
+];
+
+export const STATIC_EXPENSE_CATEGORIES = [
+  { name: 'School Tuition',        value: 7007, color: '#D8443F' },
+  { name: 'Mortgage/Rent',         value: 4433, color: '#E87471' },
+  { name: 'Federal Tax',           value: 2667, color: '#F09A98' },
+  { name: 'Groceries',             value: 1195, color: '#F5BEBC' },
+  { name: 'Social Security/FICA',  value: 1029, color: '#FAD7D6' },
+  { name: 'Other',                 value: 6954, color: '#ECEAF4' },
+];
+
+export const STATIC_SAVINGS_CATEGORIES = [
+  { name: 'Retirement Account',   value: 5028, color: '#1F3F8A' },
+  { name: 'Retirement Account 2', value: 3676, color: '#3B6BC8' },
+  { name: 'Savings Account',      value:  400, color: '#7FB3E8' },
+  { name: '529 Plan Account',     value:  150, color: '#C5DEF4' },
+  { name: 'Other',                value:    0, color: '#ECEAF4' },
+];
+
+export const STATIC_TRACKED_VS_BUDGET = [
+  { m: 'Jan', budget: 55000, income: 57207, expenses: 17916, savings: 39291 },
+  { m: 'Feb', budget: 45000, income: 18563, expenses: 22042, savings:     0 },
+  { m: 'Mar', budget: 85000, income: 80607, expenses: 55685, savings: 24922 },
+  { m: 'Apr', budget: 32705, income: 38632, expenses: 23285, savings:  9254 },
+  { m: 'May', budget: 30000, income:     0, expenses:     0, savings:     0 },
+  { m: 'Jun', budget: 28000, income:     0, expenses:     0, savings:     0 },
+  { m: 'Jul', budget: 26000, income:     0, expenses:     0, savings:     0 },
+  { m: 'Aug', budget: 25000, income:     0, expenses:     0, savings:     0 },
+  { m: 'Sep', budget: 24000, income:     0, expenses:     0, savings:     0 },
+  { m: 'Oct', budget: 26000, income:     0, expenses:     0, savings:     0 },
+  { m: 'Nov', budget: 28000, income:     0, expenses:     0, savings:     0 },
+  { m: 'Dec', budget: 32000, income:     0, expenses:     0, savings:     0 },
+];
