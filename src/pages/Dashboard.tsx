@@ -10,7 +10,7 @@ import { useDashboardData } from '../lib/useData';
 import { STATIC_GOALS } from '../lib/staticData';
 import type { CategoryBreakdownItem } from '../types/index';
 
-// ── KPI Card with interactive sparkline ──────────────────────────────────────
+// ── KPI Card with interactive sparkline ──────────────────────────────────────────────
 function KpiCard({
   label, value, delta, color, trendData, trendLabels, goodOnUp = true, formatValue,
 }: {
@@ -39,7 +39,7 @@ function KpiCard({
   );
 }
 
-// ── Recent transactions with filter dropdown ─────────────────────────────────
+// ── Recent transactions with filter dropdown ───────────────────────────────────────────
 function RecentTransactionsCard({ transactions }: { transactions: any[] }) {
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState('All');
@@ -120,7 +120,7 @@ function RecentTransactionsCard({ transactions }: { transactions: any[] }) {
   );
 }
 
-// ── Savings goals with add-goal form ─────────────────────────────────────────
+// ── Savings goals with add-goal form ───────────────────────────────────────────────────
 function SavingsGoalsCard() {
   const GOAL_COLORS = ['#7C5CFC', '#33C58A', '#F5B544', '#3B7BCE', '#D8443F', '#1F3F8A'];
   const [goals, setGoals] = useState(
@@ -211,7 +211,7 @@ function SavingsGoalsCard() {
   );
 }
 
-// ── Tracked vs Budget Chart with hover ───────────────────────────────────────
+// ── Tracked vs Budget Chart with hover ───────────────────────────────────────────────
 type TvbRow = { m: string; income: number; expenses: number; savings: number; budgetIncome?: number; budgetExpenses?: number; budgetSavings?: number };
 function TrackedVsBudget({ data, currentMonth = 'Apr' }: { data: TvbRow[]; currentMonth?: string }) {
   const [hover, setHover] = useState<{ i: number; key: string } | null>(null);
@@ -257,9 +257,6 @@ function TrackedVsBudget({ data, currentMonth = 'Apr' }: { data: TvbRow[]; curre
               <div key={i} style={{ flex: 1, height: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 3, position: 'relative' }}>
                 {seriesDef.map(s => {
                   const trackedVal = d[s.key];
-                  const barTotalH = trackedVal;
-                  const darkH = trackedVal;
-                  const lightH = 0;
                   const isHover = hover?.i === i && hover?.key === s.key;
                   return (
                     <div
@@ -267,14 +264,13 @@ function TrackedVsBudget({ data, currentMonth = 'Apr' }: { data: TvbRow[]; curre
                       onMouseEnter={() => setHover({ i, key: s.key })}
                       onMouseLeave={() => setHover(null)}
                       style={{
-                        width: 11, height: `${(barTotalH / niceMax) * 100}%`,
+                        width: 11, height: `${(trackedVal / niceMax) * 100}%`,
                         display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
                         position: 'relative', cursor: 'pointer',
                         opacity: hover && !isHover ? 0.45 : 1,
                         transition: 'opacity 0.12s',
                       }}>
-                      {lightH > 0 && <div style={{ height: `${(lightH / barTotalH) * 100}%`, background: s.light, borderRadius: '3px 3px 0 0' }} />}
-                      {darkH > 0 && <div style={{ height: `${(darkH / barTotalH) * 100}%`, background: s.dark, borderRadius: lightH === 0 ? '3px 3px 0 0' : '0' }} />}
+                      <div style={{ height: '100%', background: s.dark, borderRadius: '3px 3px 0 0' }} />
                       {isHover && (
                         <div style={{
                           position: 'absolute', bottom: '100%', left: '50%',
@@ -309,7 +305,7 @@ function TrackedVsBudget({ data, currentMonth = 'Apr' }: { data: TvbRow[]; curre
   );
 }
 
-// ── Category Card ─────────────────────────────────────────────────────────────
+// ── Category Card ────────────────────────────────────────────────────────────────────────────
 function CategoryCard({ title, accent, categories }: { title: string; accent: string; categories: CategoryBreakdownItem[] }) {
   const items = categories.filter(c => c.name !== 'Other');
   const other = categories.find(c => c.name === 'Other') || { value: 0, color: '#ECEAF4' };
@@ -354,7 +350,7 @@ function CategoryCard({ title, accent, categories }: { title: string; accent: st
   );
 }
 
-// ── Dashboard Page ────────────────────────────────────────────────────────────
+// ── Dashboard Page ────────────────────────────────────────────────────────────────────────────
 export function Dashboard({ year = 2026, month = 4 }: { year?: number; month?: number }) {
   const { kpi, flow, split, budget, transactions, incomeCategories, expenseCategories, savingsCategories, trackedVsBudget, loading } = useDashboardData(year, month);
   const [summaryOpen, setSummaryOpen] = useState(true);
@@ -372,6 +368,8 @@ export function Dashboard({ year = 2026, month = 4 }: { year?: number; month?: n
       </div>
     );
   }
+
+  const monthLabel = new Date(year, month - 1, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -454,7 +452,7 @@ export function Dashboard({ year = 2026, month = 4 }: { year?: number; month?: n
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 2px' }}>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>Summary · April 2026</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>Summary · {monthLabel}</div>
             <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 2 }}>Tracked category breakdown vs. budget</div>
           </div>
           <div

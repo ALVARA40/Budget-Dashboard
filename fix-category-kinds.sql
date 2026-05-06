@@ -8,24 +8,32 @@ UPDATE categories SET kind = 'need' WHERE name IN (
   'AD&D Insurance',
   'Banking expenses',
   'Car Insurance',
+  'Car Purchase',
   'Communications',
   'Dental Insurance',
+  'Education',
   'Electric',
   'Equity Net Value',
+  'Extracurricular activities',
   'Fuel',
   'Groceries',
   'Health Insurance',
   'Internet Service',
+  'Licensing',
   'Life Insurance',
   'Long-term disability',
   'Maintenance',
   'Medical Health',
+  'Medical Therapies',
   'Mortgage/Rent',
+  'Natural Gas/Oil',
   'Parking & Tolls Fees',
   'Personal',
   'Pet Food',
+  'Pet Grooming',
   'Pet Medical',
   'Rideshare Fare (Taxi, Bus, etc.)',
+  'School supplies',
   'School tuition',
   'Security',
   'Speech/OT Therapies',
@@ -43,32 +51,38 @@ UPDATE categories SET kind = 'want' WHERE name IN (
   'Beverages/Dessert',
   'Clothing',
   'Concerts/Live theater/Sport events',
+  'Credit Card',
   'Dining out',
+  'Gifts and charity',
+  'Gym',
   'Hair cut/nails',
   'Home Decor',
   'Hotel',
   'Shopping',
   'Streaming services',
   'Toys',
+  'Travel',
   'Videogames'
 );
 
--- MANDATORY DEDUCTIONS (kind = 'need' — these are payroll deductions, treated as needs)
+-- MANDATORY DEDUCTIONS (kind = 'need' — payroll deductions)
 UPDATE categories SET kind = 'need' WHERE name IN (
   'Federal',
   'Medicare',
-  'Social Security/FICA'
+  'Social Security/FICA',
+  'State'
 );
 
--- INCOME (kind = 'income' — should already be correct, but just in case)
+-- INCOME (kind = 'income')
 UPDATE categories SET kind = 'income' WHERE name IN (
-  'Work Income',
-  'Work Income (GDP, Extras,...)',
   'Other Income',
-  'Rental Income'
+  'Rental Income',
+  'Spouse Income',
+  'Work Income',
+  'Work Income (GDP, Extras,...)'
 );
 
--- SAVINGS (kind = 'savings' — should already be correct, but just in case)
+-- SAVINGS (kind = 'savings' — should already be correct, but reaffirming)
 UPDATE categories SET kind = 'savings' WHERE name IN (
   '529 Plan Account',
   'Retirement Account',
@@ -77,7 +91,7 @@ UPDATE categories SET kind = 'savings' WHERE name IN (
   'Savings Account'
 );
 
--- Verify the result:
+-- Verify the result — should show income/need/want/savings with correct counts:
 SELECT kind, COUNT(*) AS count, array_agg(name ORDER BY name) AS categories
 FROM categories
 WHERE user_id = auth.uid()

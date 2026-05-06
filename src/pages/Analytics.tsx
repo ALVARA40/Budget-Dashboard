@@ -12,7 +12,7 @@ interface FlowMonth { m: string; income: number; expenses: number; order: number
 interface CatTotal  { name: string; total: number; color: string }
 interface BankTotal { name: string; total: number; color: string }
 
-// ─── Cumulative sparkline ─────────────────────────────────────────────────────
+// --- Cumulative sparkline ---
 interface SparkPoint { x: number; y: number }
 function CumulativeSparkline({ data, width = 900, height = 160 }: { data: FlowMonth[]; width?: number; height?: number }) {
   const [hover, setHover] = useState<{ i: number; x: number; y: number } | null>(null);
@@ -63,22 +63,17 @@ function CumulativeSparkline({ data, width = 900, height = 160 }: { data: FlowMo
             <stop offset="100%" stopColor="#7C5CFC" stopOpacity="0.02" />
           </linearGradient>
         </defs>
-        {/* zero line */}
         <line x1={pad.l} y1={zeroY} x2={pad.l + W} y2={zeroY} stroke="var(--line)" strokeWidth="1" strokeDasharray="3 3" />
-        {/* area + line */}
         <path d={area} fill="url(#sparkGrad)" />
         <path d={line} stroke="var(--brand)" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-        {/* month labels */}
         {pts.map((p, i) => (
           <text key={i} x={p.x} y={height - 6} textAnchor="middle" fontSize="10" fill="var(--ink-muted)" fontFamily="inherit">{data[i].m}</text>
         ))}
-        {/* y labels */}
         {[min, (min + max) / 2, max].map((v, i) => (
           <text key={i} x={pad.l - 6} y={pad.t + (1 - (v - min) / range) * H + 4} textAnchor="end" fontSize="9.5" fill="var(--ink-muted)" fontFamily="inherit">
             {fmtK(v)}
           </text>
         ))}
-        {/* hover */}
         {hover && (
           <>
             <line x1={pts[hover.i].x} y1={pad.t} x2={pts[hover.i].x} y2={pad.t + H} stroke="var(--brand)" strokeOpacity="0.25" strokeWidth="1" strokeDasharray="2 2" />
@@ -106,7 +101,7 @@ function CumulativeSparkline({ data, width = 900, height = 160 }: { data: FlowMo
   );
 }
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+// --- Main ---
 export function Analytics({ year = 2026, month = 4 }: { year?: number; month?: number }) {
   const [flow,    setFlow]    = useState<FlowMonth[]>([]);
   const [cats,    setCats]    = useState<CatTotal[]>([]);
@@ -152,15 +147,15 @@ export function Analytics({ year = 2026, month = 4 }: { year?: number; month?: n
         const sk = String(key);
         if (!flowMap[sk]) flowMap[sk] = { income: 0, expenses: 0, order: key, label };
         if (t.amount > 0) flowMap[sk].income += t.amount;
-        else              flowMap[sk].expenses += Math.abs(t.amount);
+        else if (t.category?.kind !== 'savings') flowMap[sk].expenses += Math.abs(t.amount);
       });
       const flowArr: FlowMonth[] = Object.values(flowMap)
         .sort((a, b) => a.order - b.order)
         .map(v => ({ m: v.label, income: v.income, expenses: v.expenses, order: v.order }));
 
-      // Top categories by spend
+      // Top categories by spend (exclude savings)
       const catMap: Record<string, number> = {};
-      all.filter(t => t.amount < 0).forEach(t => {
+      all.filter(t => t.amount < 0 && t.category?.kind !== 'savings').forEach(t => {
         const name = t.category?.name ?? 'Other';
         catMap[name] = (catMap[name] ?? 0) + Math.abs(t.amount);
       });
@@ -169,9 +164,9 @@ export function Analytics({ year = 2026, month = 4 }: { year?: number; month?: n
         .slice(0, 8)
         .map(([name, total], i) => ({ name, total, color: CAT_COLORS[i % CAT_COLORS.length] }));
 
-      // By bank
+      // By bank (exclude savings)
       const bankMap: Record<string, number> = {};
-      all.filter(t => t.amount < 0).forEach(t => {
+      all.filter(t => t.amount < 0 && t.category?.kind !== 'savings').forEach(t => {
         const name = t.bank?.name ?? 'Unknown';
         bankMap[name] = (bankMap[name] ?? 0) + Math.abs(t.amount);
       });
