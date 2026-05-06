@@ -3,11 +3,12 @@ import { Icon } from '../ui/Icon';
 import type { IconName } from '../ui/Icon';
 
 const NAV_ITEMS: { path: string; label: string; icon: IconName }[] = [
-  { path: '/',                label: 'Dashboard',       icon: 'dashboard' },
-  { path: '/budget-planning', label: 'Budget Planning', icon: 'planning'  },
-  { path: '/budget-tracking', label: 'Budget Tracking', icon: 'tracking'  },
-  { path: '/payments',        label: 'Payments',        icon: 'tracking'  },
-  { path: '/50-30-20',        label: '50 / 30 / 20',    icon: 'split'     },
+  { path: '/',                  label: 'Dashboard',        icon: 'dashboard' },
+  { path: '/budget-planning',   label: 'Budget Planning',  icon: 'planning'  },
+  { path: '/budget-tracking',   label: 'Budget Tracking',  icon: 'tracking'  },
+  { path: '/budget-vs-tracked', label: 'Budget vs Tracked', icon: 'planning' },
+  { path: '/payments',          label: 'Payments',          icon: 'tracking'  },
+  { path: '/50-30-20',          label: '50 / 30 / 20',      icon: 'split'     },
 ];
 
 export function Sidebar() {
@@ -17,7 +18,6 @@ export function Sidebar() {
       display: 'flex', flexDirection: 'column', padding: '22px 14px',
       flexShrink: 0,
     }}>
-      {/* Logo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 8px 24px' }}>
         <div style={{
           width: 30, height: 30, borderRadius: 9,
@@ -62,7 +62,6 @@ export function Sidebar() {
 
       <div style={{ flex: 1 }} />
 
-      {/* Settings link */}
       <NavLink
         to="/settings"
         style={({ isActive }) => ({
@@ -77,7 +76,6 @@ export function Sidebar() {
         Settings
       </NavLink>
 
-      {/* User card */}
       <div style={{
         background: 'var(--bg)', borderRadius: 12, padding: 12,
         display: 'flex', alignItems: 'center', gap: 10,
