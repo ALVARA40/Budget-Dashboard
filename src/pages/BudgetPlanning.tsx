@@ -209,7 +209,7 @@ export function BudgetPlanning({ year = 2026, month = 4 }: { year?: number; mont
   function headerCellStyle(pal: typeof PALETTES.income): React.CSSProperties {
     return {
       background: pal.headerBg, color: pal.header,
-      padding: '4px 5px', fontWeight: 700, fontSize: 11, textAlign: 'right',
+      padding: '4px 5px', fontWeight: 700, fontSize: 11, width: 62, maxWidth: 62, textAlign: 'right',
       borderTop: '2px solid ' + LINE, borderBottom: '1px solid ' + LINE,
       fontVariantNumeric: 'tabular-nums',
     };
@@ -218,7 +218,7 @@ export function BudgetPlanning({ year = 2026, month = 4 }: { year?: number; mont
   function cellStyle(pal: typeof PALETTES.income): React.CSSProperties {
     return {
       background: pal.rowBg,
-      padding: '3px 5px', fontSize: 11.5, textAlign: 'right', color: INK,
+      padding: '3px 5px', fontSize: 11.5, textAlign: 'right', color: INK, width: 62, maxWidth: 62,
       borderBottom: '1px solid ' + LINE,
       fontVariantNumeric: 'tabular-nums',
     };
@@ -227,7 +227,7 @@ export function BudgetPlanning({ year = 2026, month = 4 }: { year?: number; mont
   function subtotalCellStyle(pal: typeof PALETTES.income): React.CSSProperties {
     return {
       background: pal.rowBg, color: pal.header,
-      padding: '5px 5px', fontSize: 11.5, fontWeight: 800, textAlign: 'right',
+      padding: '5px 5px', fontSize: 11.5, fontWeight: 800, textAlign: 'right', width: 62, maxWidth: 62,
       borderTop: '1px solid ' + pal.header + '33', borderBottom: '2px solid ' + pal.header,
       fontVariantNumeric: 'tabular-nums',
     };
@@ -247,7 +247,7 @@ export function BudgetPlanning({ year = 2026, month = 4 }: { year?: number; mont
       background: 'var(--surface)', color: INK,
       padding: '3px 5px', fontSize: 11, fontWeight: 700, textAlign: 'right',
       borderBottom: '1px solid ' + LINE, letterSpacing: '0.02em',
-      fontVariantNumeric: 'tabular-nums', minWidth: 35,
+      fontVariantNumeric: 'tabular-nums', minWidth: 35, width: 62, maxWidth: 62,
     };
   }
 
