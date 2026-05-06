@@ -203,7 +203,7 @@ export function BudgetPlanning({ year = 2026, month = 4 }: { year?: number; mont
 
   const fmt = (n: number) => n === 0 ? '–' : n.toLocaleString('en-US');
 
-  const labelW = 220;
+  const labelW = 170;
 
   // ── Header cell helpers ────────────────────────────────────────────────────
   function headerCellStyle(pal: typeof PALETTES.income): React.CSSProperties {
@@ -218,7 +218,7 @@ export function BudgetPlanning({ year = 2026, month = 4 }: { year?: number; mont
   function cellStyle(pal: typeof PALETTES.income): React.CSSProperties {
     return {
       background: pal.rowBg,
-      padding: '5px 7px', fontSize: 11.5, textAlign: 'right', color: INK,
+      padding: '3px 6px', fontSize: 11.5, textAlign: 'right', color: INK,
       borderBottom: '1px solid ' + LINE,
       fontVariantNumeric: 'tabular-nums',
     };
@@ -245,16 +245,16 @@ export function BudgetPlanning({ year = 2026, month = 4 }: { year?: number; mont
   function monthHeaderCellStyle(): React.CSSProperties {
     return {
       background: 'var(--surface)', color: INK,
-      padding: '8px 10px', fontSize: 11, fontWeight: 700, textAlign: 'right',
+      padding: '3px 6px', fontSize: 11, fontWeight: 700, textAlign: 'right',
       borderBottom: '1px solid ' + LINE, letterSpacing: '0.02em',
-      fontVariantNumeric: 'tabular-nums', minWidth: 72,
+      fontVariantNumeric: 'tabular-nums', minWidth: 56,
     };
   }
 
   function grandTotalCellStyle(v: number): React.CSSProperties {
     return {
       background: '#1F2340', color: v < 0 ? '#FF9B96' : '#fff',
-      padding: '12px 10px', fontSize: 12.5, fontWeight: 700, textAlign: 'right',
+      padding: '7px 8px', fontSize: 12.5, fontWeight: 700, textAlign: 'right',
       borderTop: '2px solid #1F2340',
       fontVariantNumeric: 'tabular-nums',
     };
@@ -273,7 +273,7 @@ export function BudgetPlanning({ year = 2026, month = 4 }: { year?: number; mont
           style={{
             position: 'sticky', left: 0, zIndex: 2,
             background: pal.headerBg, color: pal.header,
-            padding: '11px 12px', fontWeight: 700, fontSize: 13,
+            padding: '7px 10px', fontWeight: 700, fontSize: 13,
             borderTop: '2px solid ' + LINE, borderBottom: '1px solid ' + LINE,
             cursor: 'pointer', userSelect: 'none',
           }}
@@ -341,9 +341,9 @@ export function BudgetPlanning({ year = 2026, month = 4 }: { year?: number; mont
           onKeyDown={handleKey}
           onFocus={(e) => e.target.select()}
           style={{
-            width: '100%', height: '100%', minHeight: 24,
+            width: '100%', height: '100%', minHeight: 20,
             border: 'none', outline: 'none',
-            padding: '5px 7px',
+            padding: '3px 6px',
             background: 'transparent',
             color: isEdited ? BRAND : INK,
             fontSize: 11.5, fontWeight: isCurrent ? 600 : (isEdited ? 600 : 400),
@@ -363,7 +363,7 @@ export function BudgetPlanning({ year = 2026, month = 4 }: { year?: number; mont
         <td style={{
           position: 'sticky', left: 0, zIndex: 1,
           background: pal.rowBg, color: INK,
-          padding: '5px 10px 5px 26px', fontSize: 11.5, fontWeight: 500,
+          padding: '3px 8px 3px 20px', fontSize: 11.5, fontWeight: 500,
           borderBottom: '1px solid ' + LINE,
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           maxWidth: labelW, minWidth: labelW,
@@ -392,7 +392,7 @@ export function BudgetPlanning({ year = 2026, month = 4 }: { year?: number; mont
         <td style={{
           position: 'sticky', left: 0, zIndex: 1,
           background: pal.rowBg, color: pal.header,
-          padding: '9px 12px', fontSize: 12.5, fontWeight: 800, letterSpacing: '0.03em', textTransform: 'uppercase',
+          padding: '5px 10px', fontSize: 12.5, fontWeight: 800, letterSpacing: '0.03em', textTransform: 'uppercase',
           borderTop: '1px solid ' + pal.header + '33', borderBottom: '2px solid ' + pal.header,
         }}>{label}</td>
         {priorYears && <>
@@ -537,7 +537,7 @@ export function BudgetPlanning({ year = 2026, month = 4 }: { year?: number; mont
                 <th style={{
                   position: 'sticky', left: 0, zIndex: 5,
                   background: '#1F2340', color: '#fff',
-                  padding: '14px 14px', fontSize: 13, fontWeight: 700,
+                  padding: '5px 10px', fontSize: 13, fontWeight: 700,
                   textAlign: 'left', letterSpacing: '0.02em',
                   borderRight: '1px solid ' + LINE, minWidth: labelW,
                 }}>
@@ -559,11 +559,11 @@ export function BudgetPlanning({ year = 2026, month = 4 }: { year?: number; mont
               </tr>
 
               {/* "To be allocated" NET row */}
-              <tr style={{ position: 'sticky', top: 53, zIndex: 4 }}>
+              <tr style={{ position: 'sticky', top: 42, zIndex: 4 }}>
                 <th style={{
                   position: 'sticky', left: 0, zIndex: 5,
                   background: 'var(--bg)', color: 'var(--ink-soft)',
-                  padding: '9px 14px', fontSize: 11, fontWeight: 600,
+                  padding: '6px 12px', fontSize: 11, fontWeight: 600,
                   textAlign: 'left', fontStyle: 'italic',
                   borderBottom: '1px solid ' + LINE, minWidth: labelW,
                 }}>To be allocated</th>
@@ -588,7 +588,7 @@ export function BudgetPlanning({ year = 2026, month = 4 }: { year?: number; mont
               </tr>
 
               {/* Month column labels */}
-              <tr style={{ position: 'sticky', top: 88, zIndex: 4 }}>
+              <tr style={{ position: 'sticky', top: 64, zIndex: 4 }}>
                 <th style={{
                   position: 'sticky', left: 0, zIndex: 5,
                   background: 'var(--surface)', color: 'var(--ink-muted)',
