@@ -8,7 +8,6 @@ const NAV_ITEMS: { path: string; label: string; icon: IconName }[] = [
   { path: '/budget-tracking', label: 'Budget Tracking', icon: 'tracking'  },
   { path: '/payments',        label: 'Payments',        icon: 'tracking'  },
   { path: '/50-30-20',        label: '50 / 30 / 20',    icon: 'split'     },
-  { path: '/analytics',       label: 'Analytics',       icon: 'analytics' },
 ];
 
 export function Sidebar() {
