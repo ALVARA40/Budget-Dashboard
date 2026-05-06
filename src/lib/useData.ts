@@ -50,10 +50,10 @@ export function useDashboardData(year: number, month: number): DashboardData {
 
       if (cancelled || !txns) return;
 
-      // KPI
+      // KPI — expenses exclude savings-kind; savings = sum of savings-kind outflows
       const income   = txns.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
-      const expenses = txns.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
-      const savings  = income - expenses;
+      const expenses = txns.filter(t => t.amount < 0 && (t.category as any)?.kind !== 'savings').reduce((s, t) => s + Math.abs(t.amount), 0);
+      const savings  = txns.filter(t => t.amount < 0 && (t.category as any)?.kind === 'savings').reduce((s, t) => s + Math.abs(t.amount), 0);
       const rate     = income > 0 ? (savings / income) * 100 : 0;
 
       const kpi: KpiData = {
@@ -63,11 +63,11 @@ export function useDashboardData(year: number, month: number): DashboardData {
         savingsRate: { value: rate,     delta: 0 },
       };
 
-      // Flow (last 6 months)
+      // Flow (last 6 months) — expenses exclude savings
       const sixMonthsAgo = new Date(year, month - 7, 1).toISOString().slice(0,10);
       const { data: flowTxns } = await supabase
         .from('transactions')
-        .select('date, amount')
+        .select('date, amount, category:categories(kind)')
         .eq('user_id', session.user.id)
         .gte('date', sixMonthsAgo)
         .lte('date', to);
@@ -76,8 +76,8 @@ export function useDashboardData(year: number, month: number): DashboardData {
       (flowTxns || []).forEach(t => {
         const key = new Date(t.date + 'T12:00:00').toLocaleString('en-US', { month: 'short' });
         if (!flowMap[key]) flowMap[key] = { income: 0, expenses: 0 };
-        if (t.amount > 0) flowMap[key].income   += t.amount;
-        else              flowMap[key].expenses  += Math.abs(t.amount);
+        if (t.amount > 0) flowMap[key].income += t.amount;
+        else if ((t.category as any)?.kind !== 'savings') flowMap[key].expenses += Math.abs(t.amount);
       });
       const flow: FlowMonth[] = Object.entries(flowMap).map(([m, v]) => ({ m, ...v }));
 
@@ -93,9 +93,9 @@ export function useDashboardData(year: number, month: number): DashboardData {
         { key:'savings', label:'Savings', value:savingsTotal, target:20, actual:Math.round(savingsTotal/splitDenom*100), color:'#33C58A' },
       ];
 
-      // Budget by category (top 8 expense categories)
+      // Budget by category (top 8 expense categories, excluding savings)
       const catMap: Record<string, { spent: number; color: string }> = {};
-      txns.filter(t => t.amount < 0).forEach(t => {
+      txns.filter(t => t.amount < 0 && (t.category as any)?.kind !== 'savings').forEach(t => {
         const name = (t.category as any)?.name || 'Other';
         const color = (t.category as any)?.color || '#7C5CFC';
         if (!catMap[name]) catMap[name] = { spent: 0, color };
