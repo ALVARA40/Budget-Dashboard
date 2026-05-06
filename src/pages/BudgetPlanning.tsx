@@ -209,7 +209,7 @@ export function BudgetPlanning({ year = 2026, month = 4 }: { year?: number; mont
   function headerCellStyle(pal: typeof PALETTES.income): React.CSSProperties {
     return {
       background: pal.headerBg, color: pal.header,
-      padding: '8px 7px', fontWeight: 700, fontSize: 11, textAlign: 'right',
+      padding: '4px 5px', fontWeight: 700, fontSize: 11, textAlign: 'right',
       borderTop: '2px solid ' + LINE, borderBottom: '1px solid ' + LINE,
       fontVariantNumeric: 'tabular-nums',
     };
@@ -218,7 +218,7 @@ export function BudgetPlanning({ year = 2026, month = 4 }: { year?: number; mont
   function cellStyle(pal: typeof PALETTES.income): React.CSSProperties {
     return {
       background: pal.rowBg,
-      padding: '3px 6px', fontSize: 11.5, textAlign: 'right', color: INK,
+      padding: '3px 5px', fontSize: 11.5, textAlign: 'right', color: INK,
       borderBottom: '1px solid ' + LINE,
       fontVariantNumeric: 'tabular-nums',
     };
@@ -227,7 +227,7 @@ export function BudgetPlanning({ year = 2026, month = 4 }: { year?: number; mont
   function subtotalCellStyle(pal: typeof PALETTES.income): React.CSSProperties {
     return {
       background: pal.rowBg, color: pal.header,
-      padding: '7px 7px', fontSize: 11.5, fontWeight: 800, textAlign: 'right',
+      padding: '5px 5px', fontSize: 11.5, fontWeight: 800, textAlign: 'right',
       borderTop: '1px solid ' + pal.header + '33', borderBottom: '2px solid ' + pal.header,
       fontVariantNumeric: 'tabular-nums',
     };
@@ -236,7 +236,7 @@ export function BudgetPlanning({ year = 2026, month = 4 }: { year?: number; mont
   function totalsHeaderCellStyle(): React.CSSProperties {
     return {
       background: 'var(--bg)', color: INK,
-      padding: '9px 10px', fontSize: 11.5, fontWeight: 600, textAlign: 'right',
+      padding: '6px 6px', fontSize: 11.5, fontWeight: 600, textAlign: 'right',
       borderBottom: '1px solid ' + LINE, fontStyle: 'italic',
       fontVariantNumeric: 'tabular-nums',
     };
@@ -245,16 +245,16 @@ export function BudgetPlanning({ year = 2026, month = 4 }: { year?: number; mont
   function monthHeaderCellStyle(): React.CSSProperties {
     return {
       background: 'var(--surface)', color: INK,
-      padding: '3px 6px', fontSize: 11, fontWeight: 700, textAlign: 'right',
+      padding: '3px 5px', fontSize: 11, fontWeight: 700, textAlign: 'right',
       borderBottom: '1px solid ' + LINE, letterSpacing: '0.02em',
-      fontVariantNumeric: 'tabular-nums', minWidth: 56,
+      fontVariantNumeric: 'tabular-nums', minWidth: 44,
     };
   }
 
   function grandTotalCellStyle(v: number): React.CSSProperties {
     return {
       background: '#1F2340', color: v < 0 ? '#FF9B96' : '#fff',
-      padding: '7px 8px', fontSize: 12.5, fontWeight: 700, textAlign: 'right',
+      padding: '5px 6px', fontSize: 12.5, fontWeight: 700, textAlign: 'right',
       borderTop: '2px solid #1F2340',
       fontVariantNumeric: 'tabular-nums',
     };
@@ -343,7 +343,7 @@ export function BudgetPlanning({ year = 2026, month = 4 }: { year?: number; mont
           style={{
             width: '100%', height: '100%', minHeight: 20,
             border: 'none', outline: 'none',
-            padding: '3px 6px',
+            padding: '3px 5px',
             background: 'transparent',
             color: isEdited ? BRAND : INK,
             fontSize: 11.5, fontWeight: isCurrent ? 600 : (isEdited ? 600 : 400),
