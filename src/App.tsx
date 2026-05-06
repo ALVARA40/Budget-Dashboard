@@ -8,7 +8,6 @@ import { Dashboard } from './pages/Dashboard';
 import { BudgetPlanning } from './pages/BudgetPlanning';
 import { BudgetTracking } from './pages/BudgetTracking';
 import { Split5030 } from './pages/Split5030';
-import { Analytics } from './pages/Analytics';
 import { Payments } from './pages/Payments';
 import { Settings } from './pages/Settings';
 import { Login } from './pages/Login';
@@ -106,7 +105,6 @@ function AppShell({ session }: { session: Session | null }) {
             <Route path="/budget-tracking" element={<BudgetTracking year={selectedYear} month={selectedMonth} refreshKey={refreshKey} filters={filters} />} />
             <Route path="/payments"        element={<Payments       year={selectedYear} month={selectedMonth} refreshKey={refreshKey} filters={filters} />} />
             <Route path="/50-30-20"        element={<Split5030      year={selectedYear} month={selectedMonth} refreshKey={refreshKey} filters={filters} />} />
-            <Route path="/analytics"       element={<Analytics      year={selectedYear} month={selectedMonth} refreshKey={refreshKey} filters={filters} />} />
             <Route path="/settings"        element={<Settings />} />
             <Route path="*"                element={<Navigate to="/" replace />} />
           </Routes>
