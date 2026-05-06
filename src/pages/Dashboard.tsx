@@ -37,74 +37,6 @@ function KpiCard({
   );
 }
 
-// ── TrackedVsBudget ───────────────────────────────────────────────────────────
-function TrackedVsBudget({
-  data, currentMonth,
-}: {
-  data: { m: string; income: number; expenses: number; savings: number }[];
-  currentMonth: string;
-}) {
-  const months = data.length > 0 ? data : [];
-  const maxVal = Math.max(...months.flatMap(m => [m.income, m.expenses, m.savings]), 1);
-
-  return (
-    <div className="card" style={{ padding: '18px 22px 14px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Tracked vs. Budget</div>
-          <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', marginTop: 2 }}>Monthly income / expenses / savings</div>
-        </div>
-        <div style={{ display: 'flex', gap: 14, fontSize: 11.5, color: 'var(--ink-soft)', fontWeight: 500 }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ width: 8, height: 8, borderRadius: 999, background: '#2FB37A', display: 'inline-block' }} />
-            {' '}Income
-          </span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ width: 8, height: 8, borderRadius: 999, background: '#D8443F', display: 'inline-block' }} />
-            {' '}Expenses
-          </span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ width: 8, height: 8, borderRadius: 999, background: '#3B6BC8', display: 'inline-block' }} />
-            {' '}Savings
-          </span>
-        </div>
-      </div>
-      {months.length === 0 ? (
-        <div style={{ textAlign: 'center', color: 'var(--ink-muted)', fontSize: 13, padding: '20px 0' }}>No data for this period</div>
-      ) : (
-        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', height: 120 }}>
-          {months.map(m => (
-            <div key={m.m} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-              <div style={{ display: 'flex', gap: 2, alignItems: 'flex-end', height: 90, width: '100%', justifyContent: 'center' }}>
-                {[
-                  { val: m.income,   color: '#2FB37A' },
-                  { val: m.expenses, color: '#D8443F' },
-                  { val: m.savings,  color: '#3B6BC8' },
-                ].map((bar, i) => (
-                  <div
-                    key={i}
-                    title={fmt$(bar.val)}
-                    style={{
-                      flex: 1,
-                      height: `${Math.max(2, (bar.val / maxVal) * 90)}px`,
-                      background: bar.color,
-                      borderRadius: '3px 3px 0 0',
-                      opacity: m.m === currentMonth ? 1 : 0.55,
-                      transition: 'height 0.3s',
-                    }}
-                  />
-                ))}
-              </div>
-              <div style={{ fontSize: 10, color: m.m === currentMonth ? 'var(--ink)' : 'var(--ink-muted)', fontWeight: m.m === currentMonth ? 700 : 400 }}>
-                {m.m}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ── CategoryCard ──────────────────────────────────────────────────────────────
 function CategoryCard({ title, accent, categories }: { title: string; accent: string; categories: CategoryBreakdownItem[] }) {
@@ -139,7 +71,7 @@ function CategoryCard({ title, accent, categories }: { title: string; accent: st
 
 // ── Dashboard page ────────────────────────────────────────────────────────────
 export function Dashboard({ year = 2026, month = 4, refreshKey = 0, filters: _filters }: { year?: number; month?: number; refreshKey?: number; filters?: GlobalFilters }) {
-  const { kpi, flow, split, budget, incomeCategories, expenseCategories, savingsCategories, trackedVsBudget, loading } = useDashboardData(year, month, refreshKey);
+  const { kpi, flow, split, budget, incomeCategories, expenseCategories, savingsCategories, loading } = useDashboardData(year, month, refreshKey);
   const [summaryOpen, setSummaryOpen] = useState(true);
 
   const incomeTrend  = flow.map(f => f.income);
@@ -263,10 +195,6 @@ export function Dashboard({ year = 2026, month = 4, refreshKey = 0, filters: _fi
 
         {summaryOpen && (
           <>
-            <TrackedVsBudget
-              data={trackedVsBudget.length > 0 ? trackedVsBudget : []}
-              currentMonth={new Date(year, month - 1, 1).toLocaleString('en-US', { month: 'short' })}
-            />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
               <CategoryCard title="Income"   accent="#2FB37A" categories={incomeCategories.length  > 0 ? incomeCategories  : [{ name: 'No data', value: 1, color: '#ECEAF4' }]} />
               <CategoryCard title="Expenses" accent="#D8443F" categories={expenseCategories.length > 0 ? expenseCategories : [{ name: 'No data', value: 1, color: '#ECEAF4' }]} />
