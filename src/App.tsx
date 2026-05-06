@@ -7,6 +7,7 @@ import { AddEntryModal } from './components/ui/AddEntryModal';
 import { Dashboard } from './pages/Dashboard';
 import { BudgetPlanning } from './pages/BudgetPlanning';
 import { BudgetTracking } from './pages/BudgetTracking';
+import { BudgetVsTracked } from './pages/BudgetVsTracked';
 import { Split5030 } from './pages/Split5030';
 import { Payments } from './pages/Payments';
 import { Settings } from './pages/Settings';
@@ -37,17 +38,13 @@ function AppShell({ session }: { session: Session | null }) {
   const [companies, setCompanies]   = useState<string[]>([]);
   const [filters, setFilters]       = useState<GlobalFilters>({ category: 'All', bank: 'All', company: 'All', search: '' });
 
-  // Load categories, banks, companies from Supabase once on login
   useEffect(() => {
     if (!session) return;
     const uid = session.user.id;
-
     supabase.from('categories').select('id, name, kind, color').eq('user_id', uid).order('name')
       .then(({ data }) => { if (data) setCategories(data as AppCategory[]); });
-
     supabase.from('banks').select('name').eq('user_id', uid).order('name')
       .then(({ data }) => { if (data) setBanks(data.map((b: any) => b.name)); });
-
     supabase.from('companies').select('name').eq('user_id', uid).order('name')
       .then(({ data }) => { if (data) setCompanies(data.map((c: any) => c.name)); });
   }, [session]);
@@ -57,7 +54,6 @@ function AppShell({ session }: { session: Session | null }) {
     categoryName: string; kind: string; method: string;
   }) {
     if (!session) return;
-
     let categoryId: string | null = null;
     const existing = categories.find(c => c.name === entry.categoryName);
     if (existing) {
@@ -72,12 +68,10 @@ function AppShell({ session }: { session: Session | null }) {
         setCategories(prev => [...prev, newCat as AppCategory].sort((a, b) => a.name.localeCompare(b.name)));
       }
     }
-
     const { error } = await supabase.from('transactions').insert({
       user_id: session.user.id, date: entry.date, amount: entry.amount,
       description: entry.description, category_id: categoryId, method: entry.method,
     });
-
     if (!error) {
       setShowModal(false);
       setRefreshKey(k => k + 1);
@@ -100,13 +94,14 @@ function AppShell({ session }: { session: Session | null }) {
         />
         <div className="page-content">
           <Routes>
-            <Route path="/"                element={<Dashboard      year={selectedYear} month={selectedMonth} refreshKey={refreshKey} filters={filters} />} />
-            <Route path="/budget-planning" element={<BudgetPlanning year={selectedYear} month={selectedMonth} />} />
-            <Route path="/budget-tracking" element={<BudgetTracking year={selectedYear} month={selectedMonth} refreshKey={refreshKey} filters={filters} />} />
-            <Route path="/payments"        element={<Payments       year={selectedYear} month={selectedMonth} refreshKey={refreshKey} filters={filters} />} />
-            <Route path="/50-30-20"        element={<Split5030      year={selectedYear} month={selectedMonth} refreshKey={refreshKey} filters={filters} />} />
-            <Route path="/settings"        element={<Settings />} />
-            <Route path="*"                element={<Navigate to="/" replace />} />
+            <Route path="/"                   element={<Dashboard       year={selectedYear} month={selectedMonth} refreshKey={refreshKey} filters={filters} />} />
+            <Route path="/budget-planning"    element={<BudgetPlanning  year={selectedYear} month={selectedMonth} />} />
+            <Route path="/budget-tracking"    element={<BudgetTracking  year={selectedYear} month={selectedMonth} refreshKey={refreshKey} filters={filters} />} />
+            <Route path="/budget-vs-tracked"  element={<BudgetVsTracked year={selectedYear} month={selectedMonth} refreshKey={refreshKey} />} />
+            <Route path="/payments"           element={<Payments        year={selectedYear} month={selectedMonth} refreshKey={refreshKey} filters={filters} />} />
+            <Route path="/50-30-20"           element={<Split5030       year={selectedYear} month={selectedMonth} refreshKey={refreshKey} filters={filters} />} />
+            <Route path="/settings"           element={<Settings />} />
+            <Route path="*"                   element={<Navigate to="/" replace />} />
           </Routes>
         </div>
       </div>
