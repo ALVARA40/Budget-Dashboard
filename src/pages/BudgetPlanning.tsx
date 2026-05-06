@@ -3,7 +3,6 @@ import { supabase } from '../lib/supabase';
 import { useBudgetPlan } from '../lib/useBudgetPlan';
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const CURRENT_MONTH_IDX = 3; // April
 
 interface PlanRow { name: string; y2024: number; y2025: number; monthly: number[] }
 
@@ -106,8 +105,9 @@ function KpiMini({ label, value, sub, color }: { label: string; value: string; s
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-export function BudgetPlanning({ year: _year = 2026 }: { year?: number; month?: number }) {
-  const [selYear, setSelYear] = useState('2026');
+export function BudgetPlanning({ year = 2026, month = 4 }: { year?: number; month?: number }) {
+  const currentMonthIdx = month - 1;
+  const [selYear, setSelYear] = useState(String(year));
   const [groups, setGroups]   = useState({ income: true, expenses: true, savings: true });
   const [priorYears, setPriorYears] = useState(true);
   const [monthsExpanded, setMonthsExpanded] = useState(true);
@@ -300,7 +300,7 @@ export function BudgetPlanning({ year: _year = 2026 }: { year?: number; month?: 
     const value = getValue(group, row, mi);
     const k = cellKey(group, row.name, mi);
     const isEdited = k in edits;
-    const isCurrent = mi === CURRENT_MONTH_IDX;
+    const isCurrent = mi === currentMonthIdx;
 
     const handleKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); moveFocus(e.currentTarget, 0, 1); }
@@ -597,8 +597,8 @@ export function BudgetPlanning({ year: _year = 2026 }: { year?: number; month?: 
                 {monthsExpanded && MONTHS.map((m, mi) => (
                   <th key={m} style={{
                     ...monthHeaderCellStyle(),
-                    color: mi === CURRENT_MONTH_IDX ? BRAND : INK,
-                    background: mi === CURRENT_MONTH_IDX ? BRAND_SOFT : 'var(--surface)',
+                    color: mi === currentMonthIdx ? BRAND : INK,
+                    background: mi === currentMonthIdx ? BRAND_SOFT : 'var(--surface)',
                   }}>{m}</th>
                 ))}
                 <th style={{ ...monthHeaderCellStyle(), borderLeft: '2px solid ' + LINE }}>
