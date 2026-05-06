@@ -9,7 +9,8 @@ interface Props {
   onMonthChange: (m: number) => void;
 }
 
-const YEARS = [2024, 2025, 2026];
+const THIS_YEAR = new Date().getFullYear();
+const YEARS = [THIS_YEAR - 2, THIS_YEAR - 1, THIS_YEAR, THIS_YEAR + 1];
 
 export function Header({ onAddEntry, selectedYear, selectedMonth, onYearChange, onMonthChange }: Props) {
   return (
