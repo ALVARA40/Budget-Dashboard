@@ -247,7 +247,7 @@ export function BudgetPlanning({ year = 2026, month = 4 }: { year?: number; mont
       background: 'var(--surface)', color: INK,
       padding: '3px 5px', fontSize: 11, fontWeight: 700, textAlign: 'right',
       borderBottom: '1px solid ' + LINE, letterSpacing: '0.02em',
-      fontVariantNumeric: 'tabular-nums', minWidth: 44,
+      fontVariantNumeric: 'tabular-nums', minWidth: 35,
     };
   }
 
