@@ -111,8 +111,7 @@ export function BudgetPlanning({ year = 2026, month = 4 }: { year?: number; mont
   const [groups, setGroups]   = useState({ income: true, expenses: true, savings: true });
   const [priorYears, setPriorYears] = useState(true);
   const [monthsExpanded, setMonthsExpanded] = useState(true);
-  const [edits, setEdits]     = useState<Record<string, number>>({});
-  const { saveAll: savePlan, saving: isSaving } = useBudgetPlan(Number(selYear));
+  const { plan, getValue: getPlanValue, setValue: setPlanValue, saveAll: savePlan, saving: isSaving } = useBudgetPlan(Number(selYear));
   // Actual prior-year totals from Supabase, keyed by category name
   const [actuals, setActuals] = useState<Record<string, { y2024: number; y2025: number }>>({});
 
@@ -142,31 +141,38 @@ export function BudgetPlanning({ year = 2026, month = 4 }: { year?: number; mont
     return () => { cancelled = true; };
   }, []);
 
-  const editCount = Object.keys(edits).length;
+  // Count unsaved local edits (cells changed but not yet saved)
+  const editCount = Object.keys(plan).reduce((s, cat) => s + Object.keys(plan[cat] || {}).length, 0);
 
-  const cellKey = (group: string, name: string, mi: number) => group + ':' + name + ':' + mi;
-
-  const getValue = (group: string, row: PlanRow, mi: number) => {
-    const k = cellKey(group, row.name, mi);
-    return k in edits ? edits[k] : row.monthly[mi];
+  const getValue = (_group: string, row: PlanRow, mi: number) => {
+    // Prefer saved Supabase value, fall back to hardcoded PLANNING_DATA
+    return getPlanValue(row.name, mi + 1, row.monthly[mi]);
   };
 
-  const setValue = (group: string, name: string, mi: number, v: number) => {
-    setEdits(e => ({ ...e, [cellKey(group, name, mi)]: v }));
+  const setValue = (_group: string, name: string, mi: number, v: number) => {
+    setPlanValue(name, mi + 1, v);
   };
 
-  const revertAll = () => setEdits({});
+  const revertAll = () => {
+    // No-op: local state is the source of truth until saved; reload from Supabase
+    window.location.reload();
+  };
 
   const saveAll = async () => {
-    // Build list of all edited rows
+    // Build rows for every cell across all groups
+    const allData = [
+      ...PLANNING_DATA.income,
+      ...PLANNING_DATA.expenses,
+      ...PLANNING_DATA.savings,
+    ];
     const rows: { category: string; month: number; amount: number }[] = [];
-    Object.entries(edits).forEach(([key, amount]) => {
-      const [, name, miStr] = key.split(':');
-      rows.push({ category: name, month: Number(miStr) + 1, amount });
+    allData.forEach(row => {
+      for (let mi = 0; mi < 12; mi++) {
+        rows.push({ category: row.name, month: mi + 1, amount: getValue('', row, mi) });
+      }
     });
     const ok = await savePlan(rows);
-    if (ok) setEdits({});
-    else alert('Save failed — please try again.');
+    if (!ok) alert('Save failed — please try again.');
   };
 
   const toggleGroup = (k: keyof typeof groups) =>
@@ -298,8 +304,7 @@ export function BudgetPlanning({ year = 2026, month = 4 }: { year?: number; mont
     group: string; row: PlanRow; mi: number; pal: typeof PALETTES.income;
   }) {
     const value = getValue(group, row, mi);
-    const k = cellKey(group, row.name, mi);
-    const isEdited = k in edits;
+    const isEdited = plan[row.name]?.[mi + 1] !== undefined;
     const isCurrent = mi === currentMonthIdx;
 
     const handleKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
