@@ -14,34 +14,77 @@ import { Settings } from './pages/Settings';
 import { Login } from './pages/Login';
 import type { Session } from '@supabase/supabase-js';
 
+interface AppCategory {
+  id: string;
+  name: string;
+  kind: 'income' | 'need' | 'want' | 'savings';
+  color: string;
+}
+
 function AppShell({ session }: { session: Session | null }) {
-  const [showModal, setShowModal] = useState(false);
-  const [selectedYear, setYear]   = useState(2026);
-  const [selectedMonth, setMonth] = useState(4);
+  const [showModal, setShowModal]     = useState(false);
+  const [selectedYear, setYear]       = useState(2026);
+  const [selectedMonth, setMonth]     = useState(4);
+  const [refreshKey, setRefreshKey]   = useState(0);
+  const [categories, setCategories]   = useState<AppCategory[]>([]);
+
+  // Load real categories from Supabase once (and when session changes)
+  useEffect(() => {
+    if (!session) return;
+    supabase
+      .from('categories')
+      .select('id, name, kind, color')
+      .eq('user_id', session.user.id)
+      .order('name')
+      .then(({ data }) => {
+        if (data) setCategories(data as AppCategory[]);
+      });
+  }, [session]);
 
   async function handleSaveEntry(entry: {
     date: string; description: string; amount: number;
     categoryName: string; kind: string; method: string;
   }) {
     if (!session) return;
+
+    // Find existing category or create it
     let categoryId: string | null = null;
-    const { data: cats } = await supabase
-      .from('categories').select('id')
-      .eq('user_id', session.user.id).eq('name', entry.categoryName).limit(1);
-    if (cats && cats.length > 0) {
-      categoryId = cats[0].id;
+    const existing = categories.find(c => c.name === entry.categoryName);
+    if (existing) {
+      categoryId = existing.id;
     } else {
       const { data: newCat } = await supabase
         .from('categories')
-        .insert({ user_id: session.user.id, name: entry.categoryName, kind: entry.kind, color: '#7C5CFC', monthly_budget: 0 })
-        .select('id').single();
-      if (newCat) categoryId = newCat.id;
+        .insert({
+          user_id: session.user.id,
+          name: entry.categoryName,
+          kind: entry.kind,
+          color: '#7C5CFC',
+          monthly_budget: 0,
+        })
+        .select('id, name, kind, color')
+        .single();
+      if (newCat) {
+        categoryId = newCat.id;
+        // Add new category to local list so it shows immediately next time
+        setCategories(prev => [...prev, newCat as AppCategory].sort((a, b) => a.name.localeCompare(b.name)));
+      }
     }
-    await supabase.from('transactions').insert({
-      user_id: session.user.id, date: entry.date, amount: entry.amount,
-      description: entry.description, category_id: categoryId, method: entry.method,
+
+    const { error } = await supabase.from('transactions').insert({
+      user_id: session.user.id,
+      date: entry.date,
+      amount: entry.amount,
+      description: entry.description,
+      category_id: categoryId,
+      method: entry.method,
     });
-    setShowModal(false);
+
+    if (!error) {
+      setShowModal(false);
+      // Bump refreshKey so all pages re-fetch their data
+      setRefreshKey(k => k + 1);
+    }
   }
 
   return (
@@ -55,18 +98,24 @@ function AppShell({ session }: { session: Session | null }) {
         />
         <div className="page-content">
           <Routes>
-            <Route path="/"                element={<Dashboard      year={selectedYear} month={selectedMonth} />} />
+            <Route path="/"                element={<Dashboard      year={selectedYear} month={selectedMonth} refreshKey={refreshKey} />} />
             <Route path="/budget-planning" element={<BudgetPlanning year={selectedYear} month={selectedMonth} />} />
-            <Route path="/budget-tracking" element={<BudgetTracking year={selectedYear} month={selectedMonth} />} />
-            <Route path="/payments"        element={<Payments       year={selectedYear} month={selectedMonth} />} />
-            <Route path="/50-30-20"        element={<Split5030      year={selectedYear} month={selectedMonth} />} />
-            <Route path="/analytics"       element={<Analytics      year={selectedYear} month={selectedMonth} />} />
+            <Route path="/budget-tracking" element={<BudgetTracking year={selectedYear} month={selectedMonth} refreshKey={refreshKey} />} />
+            <Route path="/payments"        element={<Payments       year={selectedYear} month={selectedMonth} refreshKey={refreshKey} />} />
+            <Route path="/50-30-20"        element={<Split5030      year={selectedYear} month={selectedMonth} refreshKey={refreshKey} />} />
+            <Route path="/analytics"       element={<Analytics      year={selectedYear} month={selectedMonth} refreshKey={refreshKey} />} />
             <Route path="/settings"        element={<Settings />} />
             <Route path="*"                element={<Navigate to="/" replace />} />
           </Routes>
         </div>
       </div>
-      {showModal && <AddEntryModal onClose={() => setShowModal(false)} onSave={handleSaveEntry} />}
+      {showModal && (
+        <AddEntryModal
+          onClose={() => setShowModal(false)}
+          onSave={handleSaveEntry}
+          categories={categories}
+        />
+      )}
     </div>
   );
 }
@@ -79,7 +128,11 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
   if (session === undefined) {
-    return <div style={{ minHeight:'100vh', display:'grid', placeItems:'center', background:'var(--bg)' }}><div style={{ fontSize:13, color:'var(--ink-soft)' }}>Loading…</div></div>;
+    return (
+      <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'var(--bg)' }}>
+        <div style={{ fontSize: 13, color: 'var(--ink-soft)' }}>Loading…</div>
+      </div>
+    );
   }
   return (
     <BrowserRouter>

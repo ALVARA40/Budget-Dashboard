@@ -1,9 +1,16 @@
 import { useState } from 'react';
 import { Icon } from './Icon';
-import { ALL_CATEGORIES } from '../../lib/staticData';
+
+interface Category {
+  id: string;
+  name: string;
+  kind: 'income' | 'need' | 'want' | 'savings';
+  color: string;
+}
 
 interface Props {
   onClose: () => void;
+  categories: Category[];
   onSave: (entry: {
     date: string;
     description: string;
@@ -16,34 +23,37 @@ interface Props {
 
 type EntryType = 'expense' | 'income' | 'savings';
 
-export function AddEntryModal({ onClose, onSave }: Props) {
-  const [type, setType] = useState<EntryType>('expense');
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+export function AddEntryModal({ onClose, categories, onSave }: Props) {
+  const [type, setType]               = useState<EntryType>('expense');
+  const [date, setDate]               = useState(new Date().toISOString().slice(0, 10));
   const [description, setDescription] = useState('');
-  const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState('');
-  const [method, setMethod] = useState('card');
+  const [amount, setAmount]           = useState('');
+  const [category, setCategory]       = useState('');
+  const [method, setMethod]           = useState('card');
 
+  // Filter categories by selected tab
   const categoryOptions =
-    type === 'income'  ? ALL_CATEGORIES.income  :
-    type === 'savings' ? ALL_CATEGORIES.savings  :
-    [...ALL_CATEGORIES.needs, ...ALL_CATEGORIES.wants];
+    type === 'income'  ? categories.filter(c => c.kind === 'income')  :
+    type === 'savings' ? categories.filter(c => c.kind === 'savings') :
+    categories.filter(c => c.kind === 'need' || c.kind === 'want');
 
-  const kindFor = (cat: string): string => {
-    if (ALL_CATEGORIES.income.includes(cat))  return 'income';
-    if (ALL_CATEGORIES.savings.includes(cat)) return 'savings';
-    if (ALL_CATEGORIES.needs.includes(cat))   return 'need';
-    return 'want';
+  const kindFor = (name: string): string => {
+    const cat = categories.find(c => c.name === name);
+    return cat ? cat.kind : 'want';
   };
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!amount || !category) return;
-    const raw = parseFloat(amount.replace(/[^0-9.-]/g, ''));
-    const signed = type === 'income' || type === 'savings' ? Math.abs(raw) : -Math.abs(raw);
+    const raw    = parseFloat(amount.replace(/[^0-9.-]/g, ''));
+    const signed = type === 'income' ? Math.abs(raw) : -Math.abs(raw);
     onSave({ date, description, amount: signed, categoryName: category, kind: kindFor(category), method });
     onClose();
   }
+
+  // Group expense categories into Needs / Wants sections
+  const needCats = categoryOptions.filter(c => c.kind === 'need');
+  const wantCats = categoryOptions.filter(c => c.kind === 'want');
 
   return (
     <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
@@ -57,7 +67,7 @@ export function AddEntryModal({ onClose, onSave }: Props) {
 
         {/* Type tabs */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
-          {(['expense','income','savings'] as EntryType[]).map(t => (
+          {(['expense', 'income', 'savings'] as EntryType[]).map(t => (
             <button key={t} onClick={() => { setType(t); setCategory(''); }} style={{
               flex: 1, padding: '8px 0', borderRadius: 999, border: '1px solid var(--line)',
               background: type === t ? 'var(--brand)' : 'var(--bg)',
@@ -90,7 +100,22 @@ export function AddEntryModal({ onClose, onSave }: Props) {
             <label style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ink-soft)', display: 'block', marginBottom: 6 }}>CATEGORY</label>
             <select className="input" value={category} onChange={e => setCategory(e.target.value)} required>
               <option value="">Select category…</option>
-              {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+              {type === 'expense' ? (
+                <>
+                  {needCats.length > 0 && (
+                    <optgroup label="── Needs">
+                      {needCats.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                    </optgroup>
+                  )}
+                  {wantCats.length > 0 && (
+                    <optgroup label="── Wants">
+                      {wantCats.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                    </optgroup>
+                  )}
+                </>
+              ) : (
+                categoryOptions.map(c => <option key={c.id} value={c.name}>{c.name}</option>)
+              )}
             </select>
           </div>
 

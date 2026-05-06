@@ -28,7 +28,7 @@ function defaultBucket(catName: string, kind: string): 'Needs' | 'Wants' | 'Savi
 interface CatItem { name: string; kind: string; amount: number; bucket: 'Needs' | 'Wants' | 'Savings' }
 interface HistoryMonth { label: string; needs: number; wants: number; savings: number; order: number }
 
-export function Split5030({ year = 2026, month = 4 }: { year?: number; month?: number }) {
+export function Split5030({ year = 2026, month = 4, refreshKey = 0 }: { year?: number; month?: number; refreshKey?: number }) {
   const [loading, setLoading]         = useState(true);
   const [baseCats, setBaseCats]       = useState<CatItem[]>([]);
   const [history, setHistory]         = useState<HistoryMonth[]>([]);
@@ -99,7 +99,7 @@ export function Split5030({ year = 2026, month = 4 }: { year?: number; month?: n
     }
     load();
     return () => { cancelled = true; };
-  }, [year, month]);
+  }, [year, month, refreshKey]);
 
   const items: CatItem[] = useMemo(() =>
     baseCats.map(c => ({ ...c, bucket: overrides[c.name] ?? c.bucket })),

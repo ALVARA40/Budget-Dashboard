@@ -29,7 +29,7 @@ function pctDelta(current: number, previous: number): number {
   return Math.round(((current - previous) / previous) * 100 * 10) / 10;
 }
 
-export function useDashboardData(year: number, month: number): DashboardData {
+export function useDashboardData(year: number, month: number, refreshKey = 0): DashboardData {
   const [data, setData] = useState<DashboardData>({
     kpi: STATIC_KPI, flow: STATIC_FLOW, split: STATIC_SPLIT,
     budget: STATIC_BUDGET, transactions: STATIC_TRANSACTIONS,
@@ -184,7 +184,7 @@ export function useDashboardData(year: number, month: number): DashboardData {
     }
     load();
     return () => { cancelled = true; };
-  }, [year, month]);
+  }, [year, month, refreshKey]); // refreshKey triggers re-fetch after a new entry is saved
 
   return data;
 }

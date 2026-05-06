@@ -57,7 +57,7 @@ function PageBtn({ disabled, onClick, label }: { disabled: boolean; onClick: () 
   );
 }
 
-export function BudgetTracking({ year = 0, month = 0 }: { year?: number; month?: number }) {
+export function BudgetTracking({ year = 0, month = 0, refreshKey = 0 }: { year?: number; month?: number; refreshKey?: number }) {
   const [allTxns, setAllTxns]         = useState<Transaction[]>([]);
   const [loading, setLoading]         = useState(true);
   const [search, setSearch]           = useState('');
@@ -101,7 +101,7 @@ export function BudgetTracking({ year = 0, month = 0 }: { year?: number; month?:
     }
     load();
     return () => { cancelled = true; };
-  }, [year, month]);
+  }, [year, month, refreshKey]);
 
   useEffect(() => { setPage(1); }, [search, filterKind, filterCat, filterBank, filterMonth, perPage]);
 

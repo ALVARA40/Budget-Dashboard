@@ -365,8 +365,8 @@ function CategoryCard({ title, accent, categories }: { title: string; accent: st
 }
 
 // ── Dashboard Page ────────────────────────────────────────────────────────────────────────────
-export function Dashboard({ year = 2026, month = 4 }: { year?: number; month?: number }) {
-  const { kpi, flow, split, budget, transactions, incomeCategories, expenseCategories, savingsCategories, trackedVsBudget, loading } = useDashboardData(year, month);
+export function Dashboard({ year = 2026, month = 4, refreshKey = 0 }: { year?: number; month?: number; refreshKey?: number }) {
+  const { kpi, flow, split, budget, transactions, incomeCategories, expenseCategories, savingsCategories, trackedVsBudget, loading } = useDashboardData(year, month, refreshKey);
   const [summaryOpen, setSummaryOpen] = useState(true);
 
   const incomeTrend  = flow.map(f => f.income);

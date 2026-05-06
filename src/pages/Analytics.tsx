@@ -102,7 +102,7 @@ function CumulativeSparkline({ data, width = 900, height = 160 }: { data: FlowMo
 }
 
 // --- Main ---
-export function Analytics({ year = 2026, month = 4 }: { year?: number; month?: number }) {
+export function Analytics({ year = 2026, month = 4, refreshKey = 0 }: { year?: number; month?: number; refreshKey?: number }) {
   const [flow,    setFlow]    = useState<FlowMonth[]>([]);
   const [cats,    setCats]    = useState<CatTotal[]>([]);
   const [banks,   setBanks]   = useState<BankTotal[]>([]);
@@ -181,7 +181,7 @@ export function Analytics({ year = 2026, month = 4 }: { year?: number; month?: n
     }
     load();
     return () => { cancelled = true; };
-  }, [year, month]);
+  }, [year, month, refreshKey]);
 
   // Apply range filter
   const filteredFlow = (() => {
