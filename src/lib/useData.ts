@@ -131,10 +131,12 @@ export function useDashboardData(year: number, month: number, refreshKey = 0): D
         if (!catMap[name]) catMap[name] = { spent: 0, color };
         catMap[name].spent += Math.abs(t.amount);
       });
+      const BUDGET_PALETTE = ['#7C5CFC','#4BA3F7','#F25F5C','#9B7BFF','#33C58A','#F5B544','#3B7BCE','#D8443F'];
       const budget: BudgetItem[] = Object.entries(catMap)
         .map(([name, v]) => ({ name, spent: v.spent, budget: 0, color: v.color }))
         .sort((a, b) => b.spent - a.spent)
-        .slice(0, 8);
+        .slice(0, 8)
+        .map((item, i) => ({ ...item, color: BUDGET_PALETTE[i % BUDGET_PALETTE.length] }));
 
       // Category breakdown cards — themed color scales per type
       const INCOME_COLORS  = ['#2FB37A','#52C98E','#7FDBA5','#AAECC0','#CFFADF'];
