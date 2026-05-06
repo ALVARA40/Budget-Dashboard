@@ -59,7 +59,7 @@ function PageBtn({ disabled, onClick, label }: { disabled: boolean; onClick: () 
 }
 
 export function BudgetTracking({ year = 0, month = 0, refreshKey = 0, filters }: { year?: number; month?: number; refreshKey?: number; filters?: GlobalFilters }) {
-  const [allTxns, setAllTxns]         = useState<Transaction[]>([]);
+  const [rawTxns, setRawTxns]         = useState<Transaction[]>([]);
   const [loading, setLoading]         = useState(true);
   const [search, setSearch]           = useState('');
   const [filterKind, setFilterKind]   = useState('All types');
@@ -98,28 +98,27 @@ export function BudgetTracking({ year = 0, month = 0, refreshKey = 0, filters }:
         if (data.length < BATCH) break;
         offset += BATCH;
       }
-      if (!cancelled) {
-        const gf = filters;
-        const filtered = (all as Transaction[]).filter(t => {
-          if (gf?.category && gf.category !== 'All' && (t.category as any)?.name !== gf.category) return false;
-          if (gf?.bank     && gf.bank     !== 'All' && (t.bank as any)?.name     !== gf.bank)     return false;
-          if (gf?.company  && gf.company  !== 'All' && (t.company as any)?.name  !== gf.company)  return false;
-          if (gf?.search   && gf.search !== '') {
-            const q = gf.search.toLowerCase();
-            if (!t.description?.toLowerCase().includes(q) &&
-                !(t.category as any)?.name?.toLowerCase().includes(q) &&
-                !(t.bank as any)?.name?.toLowerCase().includes(q)) return false;
-          }
-          return true;
-        });
-        setAllTxns(filtered); setLoading(false);
-      }
+      if (!cancelled) { setRawTxns(all as Transaction[]); setLoading(false); }
     }
     load();
     return () => { cancelled = true; };
-  }, [year, month, refreshKey, filters]);
+  }, [year, month, refreshKey]);
 
   useEffect(() => { setPage(1); }, [search, filterKind, filterCat, filterBank, filterMonth, perPage]);
+
+  // Apply global filters reactively via useMemo — no re-fetch needed
+  const allTxns = useMemo(() => rawTxns.filter(t => {
+    if (filters?.category && filters.category !== 'All' && (t.category as any)?.name !== filters.category) return false;
+    if (filters?.bank     && filters.bank     !== 'All' && (t.bank as any)?.name     !== filters.bank)     return false;
+    if (filters?.company  && filters.company  !== 'All' && (t.company as any)?.name  !== filters.company)  return false;
+    if (filters?.search   && filters.search !== '') {
+      const q = filters.search.toLowerCase();
+      if (!t.description?.toLowerCase().includes(q) &&
+          !(t.category as any)?.name?.toLowerCase().includes(q) &&
+          !(t.bank as any)?.name?.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  }), [rawTxns, filters]);
 
   const allCats  = useMemo(() => Array.from(new Set(allTxns.map(t => (t.category as {name?:string}|null)?.name ?? '').filter(Boolean))).sort(), [allTxns]);
   const allBanks = useMemo(() => Array.from(new Set(allTxns.map(t => (t.bank as {name?:string}|null)?.name ?? '').filter(Boolean))).sort(), [allTxns]);

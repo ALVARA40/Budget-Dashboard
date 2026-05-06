@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import type { GlobalFilters } from '../App';
 import { supabase } from '../lib/supabase';
 import { MoneyFlowChart } from '../components/charts/MoneyFlowChart';
@@ -104,9 +104,7 @@ function CumulativeSparkline({ data, width = 900, height = 160 }: { data: FlowMo
 
 // --- Main ---
 export function Analytics({ year = 2026, month = 4, refreshKey = 0, filters }: { year?: number; month?: number; refreshKey?: number; filters?: GlobalFilters }) {
-  const [flow,    setFlow]    = useState<FlowMonth[]>([]);
-  const [cats,    setCats]    = useState<CatTotal[]>([]);
-  const [banks,   setBanks]   = useState<BankTotal[]>([]);
+  const [rawAll,  setRawAll]  = useState<{ date: string; amount: number; description?: string; category: { name: string; kind: string } | null; bank: { name: string } | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const [range,   setRange]   = useState<'3M'|'6M'|'12M'|'YTD'|'All'>('6M');
 
@@ -139,74 +137,71 @@ export function Analytics({ year = 2026, month = 4, refreshKey = 0, filters }: {
       }
       if (cancelled) return;
 
-      // Group by calendar month
-      const flowMap: Record<string, { income: number; expenses: number; order: number; label: string }> = {};
-      // Apply global filters
-      all = all.filter(t => {
-        if (filters?.category && filters.category !== 'All' && t.category?.name !== filters.category) return false;
-        if (filters?.bank     && filters.bank     !== 'All' && t.bank?.name     !== filters.bank)     return false;
-        if (filters?.search   && filters.search !== '') {
-          const q = filters.search.toLowerCase();
-          if (!((t as any).description?.toLowerCase().includes(q)) &&
-              !t.category?.name?.toLowerCase().includes(q) &&
-              !t.bank?.name?.toLowerCase().includes(q)) return false;
-        }
-        return true;
-      });
-
-      all.forEach(t => {
-        const d = new Date(t.date + 'T12:00:00');
-        const key = d.getFullYear() * 100 + (d.getMonth() + 1);
-        const label = MONTH_NAMES[d.getMonth()];
-        const sk = String(key);
-        if (!flowMap[sk]) flowMap[sk] = { income: 0, expenses: 0, order: key, label };
-        if (t.amount > 0) flowMap[sk].income += t.amount;
-        else if (t.category?.kind !== 'savings') flowMap[sk].expenses += Math.abs(t.amount);
-      });
-      const flowArr: FlowMonth[] = Object.values(flowMap)
-        .sort((a, b) => a.order - b.order)
-        .map(v => ({ m: v.label, income: v.income, expenses: v.expenses, order: v.order }));
-
-      // Top categories by spend (exclude savings)
-      const catMap: Record<string, number> = {};
-      all.filter(t => t.amount < 0 && t.category?.kind !== 'savings').forEach(t => {
-        const name = t.category?.name ?? 'Other';
-        catMap[name] = (catMap[name] ?? 0) + Math.abs(t.amount);
-      });
-      const catsArr: CatTotal[] = Object.entries(catMap)
-        .sort(([, a], [, b]) => b - a)
-        .slice(0, 8)
-        .map(([name, total], i) => ({ name, total, color: CAT_COLORS[i % CAT_COLORS.length] }));
-
-      // By bank (exclude savings)
-      const bankMap: Record<string, number> = {};
-      all.filter(t => t.amount < 0 && t.category?.kind !== 'savings').forEach(t => {
-        const name = t.bank?.name ?? 'Unknown';
-        bankMap[name] = (bankMap[name] ?? 0) + Math.abs(t.amount);
-      });
-      const banksArr: BankTotal[] = Object.entries(bankMap)
-        .sort(([, a], [, b]) => b - a)
-        .map(([name, total], i) => ({ name, total, color: BANK_COLORS[i % BANK_COLORS.length] }));
-
-      setFlow(flowArr);
-      setCats(catsArr);
-      setBanks(banksArr);
+      setRawAll(all);
       setLoading(false);
     }
     load();
     return () => { cancelled = true; };
-  }, [year, month, refreshKey, filters]);
+  }, [year, month, refreshKey]);
+
+  // Apply global filters reactively — no re-fetch needed
+  const filteredAll = useMemo(() => rawAll.filter((t: typeof rawAll[0]) => {
+    if (filters?.category && filters.category !== 'All' && t.category?.name !== filters.category) return false;
+    if (filters?.bank     && filters.bank     !== 'All' && t.bank?.name     !== filters.bank)     return false;
+    if (filters?.search   && filters.search !== '') {
+      const q = filters.search.toLowerCase();
+      if (!(t as any).description?.toLowerCase().includes(q) &&
+          !t.category?.name?.toLowerCase().includes(q) &&
+          !t.bank?.name?.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  }), [rawAll, filters]);
+
+  const flow = useMemo<FlowMonth[]>(() => {
+    const flowMap: Record<string, { income: number; expenses: number; order: number; label: string }> = {};
+    filteredAll.forEach((t: typeof filteredAll[0]) => {
+      const d = new Date(t.date + 'T12:00:00');
+      const key = d.getFullYear() * 100 + (d.getMonth() + 1);
+      const label = MONTH_NAMES[d.getMonth()];
+      const sk = String(key);
+      if (!flowMap[sk]) flowMap[sk] = { income: 0, expenses: 0, order: key, label };
+      if (t.amount > 0) flowMap[sk].income += t.amount;
+      else if (t.category?.kind !== 'savings') flowMap[sk].expenses += Math.abs(t.amount);
+    });
+    return Object.values(flowMap).sort((a, b) => a.order - b.order)
+      .map(v => ({ m: v.label, income: v.income, expenses: v.expenses, order: v.order }));
+  }, [filteredAll]);
+
+  const cats = useMemo<CatTotal[]>(() => {
+    const catMap: Record<string, number> = {};
+    filteredAll.filter((t: typeof filteredAll[0]) => t.amount < 0 && t.category?.kind !== 'savings').forEach((t: typeof filteredAll[0]) => {
+      const name = t.category?.name ?? 'Other';
+      catMap[name] = (catMap[name] ?? 0) + Math.abs(t.amount);
+    });
+    return Object.entries(catMap).sort(([, a]: [string,number], [, b]: [string,number]) => b - a).slice(0, 8)
+      .map(([name, total], i) => ({ name, total, color: CAT_COLORS[i % CAT_COLORS.length] }));
+  }, [filteredAll]);
+
+  const banks = useMemo<BankTotal[]>(() => {
+    const bankMap: Record<string, number> = {};
+    filteredAll.filter((t: typeof filteredAll[0]) => t.amount < 0 && t.category?.kind !== 'savings').forEach((t: typeof filteredAll[0]) => {
+      const name = t.bank?.name ?? 'Unknown';
+      bankMap[name] = (bankMap[name] ?? 0) + Math.abs(t.amount);
+    });
+    return Object.entries(bankMap).sort(([, a]: [string,number], [, b]: [string,number]) => b - a)
+      .map(([name, total], i) => ({ name, total, color: BANK_COLORS[i % BANK_COLORS.length] }));
+  }, [filteredAll]);
 
   // Apply range filter
   const filteredFlow = (() => {
     if (range === 'All') return flow;
-    if (range === 'YTD') return flow.filter(f => f.order >= year * 100 + 1 && f.order <= year * 100 + month);
+    if (range === 'YTD') return flow.filter((f: FlowMonth) => f.order >= year * 100 + 1 && f.order <= year * 100 + month);
     const n = range === '3M' ? 3 : range === '6M' ? 6 : 12;
     return flow.slice(-n);
   })();
 
-  const totalIncome   = filteredFlow.reduce((s, f) => s + f.income, 0);
-  const totalExpenses = filteredFlow.reduce((s, f) => s + f.expenses, 0);
+  const totalIncome   = filteredFlow.reduce((s: number, f: FlowMonth) => s + f.income, 0);
+  const totalExpenses = filteredFlow.reduce((s: number, f: FlowMonth) => s + f.expenses, 0);
   const totalSavings  = totalIncome - totalExpenses;
   const months        = filteredFlow.length || 1;
 
@@ -215,7 +210,7 @@ export function Analytics({ year = 2026, month = 4, refreshKey = 0, filters }: {
   const burnRate    = totalIncome > 0 ? (totalExpenses / totalIncome) * 100 : 0;
   const projected   = totalSavings * (12 / months);
 
-  const bankTotal = banks.reduce((s, b) => s + b.total, 0);
+  const bankTotal = banks.reduce((s: number, b: BankTotal) => s + b.total, 0);
 
   const RANGES: Array<'3M'|'6M'|'12M'|'YTD'|'All'> = ['3M','6M','12M','YTD','All'];
 

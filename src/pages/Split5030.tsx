@@ -61,23 +61,9 @@ export function Split5030({ year = 2026, month = 4, refreshKey = 0, filters }: {
 
       if (cancelled) return;
 
-      // Apply global filters
-      const applyGF = (rows: any[]) => rows.filter((t: any) => {
-        if (filters?.category && filters.category !== 'All' && t.category?.name !== filters.category) return false;
-        if (filters?.bank     && filters.bank     !== 'All' && t.bank?.name     !== filters.bank)     return false;
-        if (filters?.company  && filters.company  !== 'All' && t.company?.name  !== filters.company)  return false;
-        if (filters?.search   && filters.search !== '') {
-          const q = filters.search.toLowerCase();
-          if (!t.description?.toLowerCase().includes(q) && !t.category?.name?.toLowerCase().includes(q)) return false;
-        }
-        return true;
-      });
-      const currFiltered = applyGF(curr ?? []);
-      const histFiltered = applyGF(hist ?? []);
-
       // Build category map for current month
       const catMap: Record<string, { name: string; kind: string; amount: number }> = {};
-      currFiltered.forEach((t: any) => {
+      (curr ?? []).forEach((t: any) => {
         const name = t.category?.name ?? 'Other';
         const kind = t.category?.kind ?? 'expense';
         if (!catMap[name]) catMap[name] = { name, kind, amount: 0 };
@@ -91,7 +77,7 @@ export function Split5030({ year = 2026, month = 4, refreshKey = 0, filters }: {
 
       // Build history
       const histMap: Record<string, HistoryMonth> = {};
-      histFiltered.forEach((t: any) => {
+      (hist ?? []).forEach((t: any) => {
         const d = new Date(t.date + 'T12:00:00');
         const key = d.getFullYear() * 100 + (d.getMonth() + 1);
         const sk = String(key);
@@ -107,11 +93,16 @@ export function Split5030({ year = 2026, month = 4, refreshKey = 0, filters }: {
     }
     load();
     return () => { cancelled = true; };
-  }, [year, month, refreshKey, filters]);
+  }, [year, month, refreshKey]);
 
   const items: CatItem[] = useMemo(() =>
-    baseCats.map(c => ({ ...c, bucket: overrides[c.name] ?? c.bucket })),
-    [baseCats, overrides]
+    baseCats
+      .filter(c => {
+        if (filters?.category && filters.category !== 'All' && c.name !== filters.category) return false;
+        return true;
+      })
+      .map(c => ({ ...c, bucket: overrides[c.name] ?? c.bucket })),
+    [baseCats, overrides, filters]
   );
 
   const setBucket = (name: string, bucket: 'Needs' | 'Wants' | 'Savings') =>
