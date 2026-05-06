@@ -20,6 +20,15 @@ export interface DashboardData {
   loading:           boolean;
 }
 
+function prevMonth(year: number, month: number): { year: number; month: number } {
+  return month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
+}
+
+function pctDelta(current: number, previous: number): number {
+  if (previous === 0) return 0;
+  return Math.round(((current - previous) / previous) * 100 * 10) / 10;
+}
+
 export function useDashboardData(year: number, month: number): DashboardData {
   const [data, setData] = useState<DashboardData>({
     kpi: STATIC_KPI, flow: STATIC_FLOW, split: STATIC_SPLIT,
@@ -40,27 +49,48 @@ export function useDashboardData(year: number, month: number): DashboardData {
       const from = `${year}-${String(month).padStart(2,'0')}-01`;
       const to   = new Date(year, month, 0).toISOString().slice(0,10);
 
-      const { data: txns } = await supabase
-        .from('transactions')
-        .select('*, category:categories(*), bank:banks(*), company:companies(*)')
-        .eq('user_id', session.user.id)
-        .gte('date', from)
-        .lte('date', to)
-        .order('date', { ascending: false });
+      // Previous month range for deltas
+      const prev = prevMonth(year, month);
+      const prevFrom = `${prev.year}-${String(prev.month).padStart(2,'0')}-01`;
+      const prevTo   = new Date(prev.year, prev.month, 0).toISOString().slice(0,10);
+
+      // Fetch current month + previous month in parallel
+      const [{ data: txns }, { data: prevTxns }] = await Promise.all([
+        supabase
+          .from('transactions')
+          .select('*, category:categories(*), bank:banks(*), company:companies(*)')
+          .eq('user_id', session.user.id)
+          .gte('date', from)
+          .lte('date', to)
+          .order('date', { ascending: false }),
+        supabase
+          .from('transactions')
+          .select('amount, category:categories(kind)')
+          .eq('user_id', session.user.id)
+          .gte('date', prevFrom)
+          .lte('date', prevTo),
+      ]);
 
       if (cancelled || !txns) return;
 
-      // KPI — expenses exclude savings-kind; savings = sum of savings-kind outflows
+      // KPI — current month
       const income   = txns.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
       const expenses = txns.filter(t => t.amount < 0 && (t.category as any)?.kind !== 'savings').reduce((s, t) => s + Math.abs(t.amount), 0);
       const savings  = txns.filter(t => t.amount < 0 && (t.category as any)?.kind === 'savings').reduce((s, t) => s + Math.abs(t.amount), 0);
       const rate     = income > 0 ? (savings / income) * 100 : 0;
 
+      // KPI — previous month (for deltas)
+      const pt = prevTxns || [];
+      const prevIncome   = pt.filter((t: any) => t.amount > 0).reduce((s: number, t: any) => s + t.amount, 0);
+      const prevExpenses = pt.filter((t: any) => t.amount < 0 && (t.category as any)?.kind !== 'savings').reduce((s: number, t: any) => s + Math.abs(t.amount), 0);
+      const prevSavings  = pt.filter((t: any) => t.amount < 0 && (t.category as any)?.kind === 'savings').reduce((s: number, t: any) => s + Math.abs(t.amount), 0);
+      const prevRate     = prevIncome > 0 ? (prevSavings / prevIncome) * 100 : 0;
+
       const kpi: KpiData = {
-        income:      { value: income,   delta: 0 },
-        expenses:    { value: expenses, delta: 0 },
-        savings:     { value: savings,  delta: 0 },
-        savingsRate: { value: rate,     delta: 0 },
+        income:      { value: income,   delta: pctDelta(income,   prevIncome)   },
+        expenses:    { value: expenses, delta: pctDelta(expenses, prevExpenses) },
+        savings:     { value: savings,  delta: pctDelta(savings,  prevSavings)  },
+        savingsRate: { value: rate,     delta: Math.round((rate - prevRate) * 10) / 10 },
       };
 
       // Flow (last 6 months) — expenses exclude savings

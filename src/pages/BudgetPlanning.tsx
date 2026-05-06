@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { useBudgetPlan } from '../lib/useBudgetPlan';
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const CURRENT_MONTH_IDX = 3; // April
@@ -111,6 +112,7 @@ export function BudgetPlanning({ year: _year = 2026 }: { year?: number; month?: 
   const [priorYears, setPriorYears] = useState(true);
   const [monthsExpanded, setMonthsExpanded] = useState(true);
   const [edits, setEdits]     = useState<Record<string, number>>({});
+  const { saveAll: savePlan, saving: isSaving } = useBudgetPlan(Number(selYear));
   // Actual prior-year totals from Supabase, keyed by category name
   const [actuals, setActuals] = useState<Record<string, { y2024: number; y2025: number }>>({});
 
@@ -155,9 +157,16 @@ export function BudgetPlanning({ year: _year = 2026 }: { year?: number; month?: 
 
   const revertAll = () => setEdits({});
 
-  const saveAll = () => {
-    setEdits({});
-    alert(editCount + ' change' + (editCount === 1 ? '' : 's') + ' saved (mock — will write to Supabase)');
+  const saveAll = async () => {
+    // Build list of all edited rows
+    const rows: { category: string; month: number; amount: number }[] = [];
+    Object.entries(edits).forEach(([key, amount]) => {
+      const [, name, miStr] = key.split(':');
+      rows.push({ category: name, month: Number(miStr) + 1, amount });
+    });
+    const ok = await savePlan(rows);
+    if (ok) setEdits({});
+    else alert('Save failed — please try again.');
   };
 
   const toggleGroup = (k: keyof typeof groups) =>
@@ -502,7 +511,7 @@ export function BudgetPlanning({ year: _year = 2026 }: { year?: number; month?: 
           )}
           <ActionBtn disabled={editCount === 0} onClick={revertAll}>Revert</ActionBtn>
           <ActionBtn>Copy last year</ActionBtn>
-          <ActionBtn primary disabled={editCount === 0} onClick={saveAll}>Save changes</ActionBtn>
+          <ActionBtn primary disabled={editCount === 0 || isSaving} onClick={saveAll}>{isSaving ? 'Saving…' : 'Save changes'}</ActionBtn>
         </div>
       </div>
 

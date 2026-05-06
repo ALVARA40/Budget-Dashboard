@@ -7,7 +7,7 @@ import { DeltaPill } from '../components/ui/DeltaPill';
 import { Icon } from '../components/ui/Icon';
 import { fmt$, fmtPct, fmtDate } from '../lib/format';
 import { useDashboardData } from '../lib/useData';
-import { STATIC_GOALS } from '../lib/staticData';
+import { useGoals } from '../lib/useGoals';
 import type { CategoryBreakdownItem } from '../types/index';
 
 // ── KPI Card with interactive sparkline ──────────────────────────────────────────────
@@ -120,25 +120,20 @@ function RecentTransactionsCard({ transactions }: { transactions: any[] }) {
   );
 }
 
-// ── Savings goals with add-goal form ───────────────────────────────────────────────────
+// ── Savings goals with add-goal form (real Supabase) ──────────────────────────────────
 function SavingsGoalsCard() {
-  const GOAL_COLORS = ['#7C5CFC', '#33C58A', '#F5B544', '#3B7BCE', '#D8443F', '#1F3F8A'];
-  const [goals, setGoals] = useState(
-    STATIC_GOALS.map(g => ({ name: g.name, target: g.target, saved: g.current, color: g.color }))
-  );
+  const { goals, loading: goalsLoading, addGoal, deleteGoal } = useGoals();
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ name: '', target: '', saved: '' });
+  const [submitting, setSubmitting] = useState(false);
 
-  function submit() {
+  async function submit() {
     if (!form.name || !form.target) return;
-    setGoals(g => [...g, {
-      name: form.name,
-      target: Number(form.target) || 0,
-      saved: Number(form.saved) || 0,
-      color: GOAL_COLORS[g.length % GOAL_COLORS.length],
-    }]);
+    setSubmitting(true);
+    await addGoal(form.name, Number(form.target) || 0, Number(form.saved) || 0);
     setForm({ name: '', target: '', saved: '' });
     setAdding(false);
+    setSubmitting(false);
   }
 
   return (
@@ -146,7 +141,9 @@ function SavingsGoalsCard() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: adding ? 12 : 14 }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Savings goals</div>
-          <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', marginTop: 2 }}>On track · {goals.length} active</div>
+          <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', marginTop: 2 }}>
+            {goalsLoading ? 'Loading…' : `${goals.length} active`}
+          </div>
         </div>
         <div
           onClick={() => setAdding(v => !v)}
@@ -184,29 +181,46 @@ function SavingsGoalsCard() {
             />
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
-            <div onClick={submit} style={{ flex: 1, background: 'var(--brand)', color: '#fff', padding: '7px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, textAlign: 'center', cursor: 'pointer' }}>Add goal</div>
+            <div onClick={submitting ? undefined : submit} style={{ flex: 1, background: submitting ? 'var(--ink-muted)' : 'var(--brand)', color: '#fff', padding: '7px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, textAlign: 'center', cursor: submitting ? 'not-allowed' : 'pointer' }}>
+              {submitting ? 'Saving…' : 'Add goal'}
+            </div>
             <div onClick={() => { setAdding(false); setForm({ name: '', target: '', saved: '' }); }} style={{ background: 'var(--surface)', border: '1px solid var(--line)', color: 'var(--ink-soft)', padding: '7px 12px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>Cancel</div>
           </div>
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {goals.map(g => {
-          const pct = g.target > 0 ? (g.saved / g.target) * 100 : 0;
-          return (
-            <div key={g.name}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 7 }}>
-                <div style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 600 }}>{g.name}</div>
-                <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', fontVariantNumeric: 'tabular-nums' }}>
-                  <b style={{ color: 'var(--ink)', fontWeight: 700 }}>{fmt$(g.saved)}</b> / {fmt$(g.target)}
+      {goalsLoading ? (
+        <div style={{ padding: '20px 0', textAlign: 'center', fontSize: 12, color: 'var(--ink-muted)' }}>Loading goals…</div>
+      ) : goals.length === 0 ? (
+        <div style={{ padding: '20px 0', textAlign: 'center', fontSize: 12, color: 'var(--ink-muted)' }}>No goals yet — add one above.</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {goals.map(g => {
+            const pct = g.target > 0 ? (g.current / g.target) * 100 : 0;
+            return (
+              <div key={g.id}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 7 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 600 }}>{g.name}</div>
+                    <div
+                      onClick={() => deleteGoal(g.id)}
+                      title="Remove goal"
+                      style={{ fontSize: 11, color: 'var(--ink-muted)', cursor: 'pointer', lineHeight: 1, padding: '1px 4px', borderRadius: 4 }}
+                      onMouseEnter={e => (e.currentTarget.style.color = 'var(--red)')}
+                      onMouseLeave={e => (e.currentTarget.style.color = 'var(--ink-muted)')}
+                    >×</div>
+                  </div>
+                  <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', fontVariantNumeric: 'tabular-nums' }}>
+                    <b style={{ color: 'var(--ink)', fontWeight: 700 }}>{fmt$(g.current)}</b> / {fmt$(g.target)}
+                  </div>
                 </div>
+                <ProgressBar pct={pct} color={g.color} track="var(--bg)" height={6} />
+                <div style={{ fontSize: 10.5, color: 'var(--ink-muted)', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{pct.toFixed(0)}% saved</div>
               </div>
-              <ProgressBar pct={pct} color={g.color} track="var(--bg)" height={6} />
-              <div style={{ fontSize: 10.5, color: 'var(--ink-muted)', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{pct.toFixed(0)}% saved</div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -469,6 +483,7 @@ export function Dashboard({ year = 2026, month = 4 }: { year?: number; month?: n
             </svg>
           </div>
         </div>
+
         {summaryOpen && (
           <>
             <TrackedVsBudget
