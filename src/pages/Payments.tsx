@@ -4,6 +4,7 @@ import { fmt$ } from '../lib/format';
 import { Icon } from '../components/ui/Icon';
 import { Dropdown } from '../components/ui/Dropdown';
 import type { Transaction } from '../types/index';
+import type { GlobalFilters } from '../App';
 
 const BATCH = 1000;
 const BANK_COLORS = ['#7C5CFC','#33C58A','#3B7BCE','#F5B544','#D8443F','#1F3F8A','#E6A214','#7FB3E8'];
@@ -58,7 +59,7 @@ function PageBtn({ disabled, onClick, label }: { disabled: boolean; onClick: () 
   );
 }
 
-export function Payments({ year = 0, month = 0, refreshKey = 0 }: { year?: number; month?: number; refreshKey?: number }) {
+export function Payments({ year = 0, month = 0, refreshKey = 0, filters }: { year?: number; month?: number; refreshKey?: number; filters?: GlobalFilters }) {
   const [allTxns, setAllTxns]         = useState<Transaction[]>([]);
   const [loading, setLoading]         = useState(true);
   const [search, setSearch]           = useState('');
@@ -96,11 +97,26 @@ export function Payments({ year = 0, month = 0, refreshKey = 0 }: { year?: numbe
         if (data.length < BATCH) break;
         offset += BATCH;
       }
-      if (!cancelled) { setAllTxns(all); setLoading(false); }
+      if (!cancelled) {
+        const gf = filters;
+        const filteredAll = (all as Transaction[]).filter(t => {
+          if (gf?.category && gf.category !== 'All' && (t.category as any)?.name !== gf.category) return false;
+          if (gf?.bank     && gf.bank     !== 'All' && (t.bank as any)?.name     !== gf.bank)     return false;
+          if (gf?.company  && gf.company  !== 'All' && (t.company as any)?.name  !== gf.company)  return false;
+          if (gf?.search   && gf.search !== '') {
+            const q = gf.search.toLowerCase();
+            if (!t.description?.toLowerCase().includes(q) &&
+                !(t.category as any)?.name?.toLowerCase().includes(q) &&
+                !(t.bank as any)?.name?.toLowerCase().includes(q)) return false;
+          }
+          return true;
+        });
+        setAllTxns(filteredAll); setLoading(false);
+      }
     }
     load();
     return () => { cancelled = true; };
-  }, [year, month, refreshKey]);
+  }, [year, month, refreshKey, filters]);
 
   useEffect(() => { setPage(1); }, [search, filterBank, filterMonth]);
 

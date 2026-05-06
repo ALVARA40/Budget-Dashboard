@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import type { GlobalFilters } from '../App';
 import { supabase } from '../lib/supabase';
 import { MoneyFlowChart } from '../components/charts/MoneyFlowChart';
 import { Donut } from '../components/charts/Donut';
@@ -102,7 +103,7 @@ function CumulativeSparkline({ data, width = 900, height = 160 }: { data: FlowMo
 }
 
 // --- Main ---
-export function Analytics({ year = 2026, month = 4, refreshKey = 0 }: { year?: number; month?: number; refreshKey?: number }) {
+export function Analytics({ year = 2026, month = 4, refreshKey = 0, filters }: { year?: number; month?: number; refreshKey?: number; filters?: GlobalFilters }) {
   const [flow,    setFlow]    = useState<FlowMonth[]>([]);
   const [cats,    setCats]    = useState<CatTotal[]>([]);
   const [banks,   setBanks]   = useState<BankTotal[]>([]);
@@ -140,6 +141,19 @@ export function Analytics({ year = 2026, month = 4, refreshKey = 0 }: { year?: n
 
       // Group by calendar month
       const flowMap: Record<string, { income: number; expenses: number; order: number; label: string }> = {};
+      // Apply global filters
+      all = all.filter(t => {
+        if (filters?.category && filters.category !== 'All' && t.category?.name !== filters.category) return false;
+        if (filters?.bank     && filters.bank     !== 'All' && t.bank?.name     !== filters.bank)     return false;
+        if (filters?.search   && filters.search !== '') {
+          const q = filters.search.toLowerCase();
+          if (!((t as any).description?.toLowerCase().includes(q)) &&
+              !t.category?.name?.toLowerCase().includes(q) &&
+              !t.bank?.name?.toLowerCase().includes(q)) return false;
+        }
+        return true;
+      });
+
       all.forEach(t => {
         const d = new Date(t.date + 'T12:00:00');
         const key = d.getFullYear() * 100 + (d.getMonth() + 1);
@@ -181,7 +195,7 @@ export function Analytics({ year = 2026, month = 4, refreshKey = 0 }: { year?: n
     }
     load();
     return () => { cancelled = true; };
-  }, [year, month, refreshKey]);
+  }, [year, month, refreshKey, filters]);
 
   // Apply range filter
   const filteredFlow = (() => {

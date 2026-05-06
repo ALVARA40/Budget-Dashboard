@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import type { GlobalFilters } from '../App';
 import { supabase } from '../lib/supabase';
 import { Donut } from '../components/charts/Donut';
 import { fmt$ } from '../lib/format';
@@ -21,7 +22,7 @@ function defaultBucket(_catName: string, kind: string): 'Needs' | 'Wants' | 'Sav
 interface CatItem { name: string; kind: string; amount: number; bucket: 'Needs' | 'Wants' | 'Savings' }
 interface HistoryMonth { label: string; needs: number; wants: number; savings: number; order: number }
 
-export function Split5030({ year = 2026, month = 4, refreshKey = 0 }: { year?: number; month?: number; refreshKey?: number }) {
+export function Split5030({ year = 2026, month = 4, refreshKey = 0, filters }: { year?: number; month?: number; refreshKey?: number; filters?: GlobalFilters }) {
   const [loading, setLoading]         = useState(true);
   const [baseCats, setBaseCats]       = useState<CatItem[]>([]);
   const [history, setHistory]         = useState<HistoryMonth[]>([]);
@@ -60,9 +61,23 @@ export function Split5030({ year = 2026, month = 4, refreshKey = 0 }: { year?: n
 
       if (cancelled) return;
 
+      // Apply global filters
+      const applyGF = (rows: any[]) => rows.filter((t: any) => {
+        if (filters?.category && filters.category !== 'All' && t.category?.name !== filters.category) return false;
+        if (filters?.bank     && filters.bank     !== 'All' && t.bank?.name     !== filters.bank)     return false;
+        if (filters?.company  && filters.company  !== 'All' && t.company?.name  !== filters.company)  return false;
+        if (filters?.search   && filters.search !== '') {
+          const q = filters.search.toLowerCase();
+          if (!t.description?.toLowerCase().includes(q) && !t.category?.name?.toLowerCase().includes(q)) return false;
+        }
+        return true;
+      });
+      const currFiltered = applyGF(curr ?? []);
+      const histFiltered = applyGF(hist ?? []);
+
       // Build category map for current month
       const catMap: Record<string, { name: string; kind: string; amount: number }> = {};
-      (curr ?? []).forEach((t: any) => {
+      currFiltered.forEach((t: any) => {
         const name = t.category?.name ?? 'Other';
         const kind = t.category?.kind ?? 'expense';
         if (!catMap[name]) catMap[name] = { name, kind, amount: 0 };
@@ -76,7 +91,7 @@ export function Split5030({ year = 2026, month = 4, refreshKey = 0 }: { year?: n
 
       // Build history
       const histMap: Record<string, HistoryMonth> = {};
-      (hist ?? []).forEach((t: any) => {
+      histFiltered.forEach((t: any) => {
         const d = new Date(t.date + 'T12:00:00');
         const key = d.getFullYear() * 100 + (d.getMonth() + 1);
         const sk = String(key);
@@ -92,7 +107,7 @@ export function Split5030({ year = 2026, month = 4, refreshKey = 0 }: { year?: n
     }
     load();
     return () => { cancelled = true; };
-  }, [year, month, refreshKey]);
+  }, [year, month, refreshKey, filters]);
 
   const items: CatItem[] = useMemo(() =>
     baseCats.map(c => ({ ...c, bucket: overrides[c.name] ?? c.bucket })),

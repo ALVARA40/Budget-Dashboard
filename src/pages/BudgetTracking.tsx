@@ -4,6 +4,7 @@ import { fmt$ } from '../lib/format';
 import { Icon } from '../components/ui/Icon';
 import { Dropdown } from '../components/ui/Dropdown';
 import type { Transaction } from '../types/index';
+import type { GlobalFilters } from '../App';
 
 function fmtDateShort(iso: string) {
   const d = new Date(iso + 'T12:00:00');
@@ -57,7 +58,7 @@ function PageBtn({ disabled, onClick, label }: { disabled: boolean; onClick: () 
   );
 }
 
-export function BudgetTracking({ year = 0, month = 0, refreshKey = 0 }: { year?: number; month?: number; refreshKey?: number }) {
+export function BudgetTracking({ year = 0, month = 0, refreshKey = 0, filters }: { year?: number; month?: number; refreshKey?: number; filters?: GlobalFilters }) {
   const [allTxns, setAllTxns]         = useState<Transaction[]>([]);
   const [loading, setLoading]         = useState(true);
   const [search, setSearch]           = useState('');
@@ -97,11 +98,26 @@ export function BudgetTracking({ year = 0, month = 0, refreshKey = 0 }: { year?:
         if (data.length < BATCH) break;
         offset += BATCH;
       }
-      if (!cancelled) { setAllTxns(all); setLoading(false); }
+      if (!cancelled) {
+        const gf = filters;
+        const filtered = (all as Transaction[]).filter(t => {
+          if (gf?.category && gf.category !== 'All' && (t.category as any)?.name !== gf.category) return false;
+          if (gf?.bank     && gf.bank     !== 'All' && (t.bank as any)?.name     !== gf.bank)     return false;
+          if (gf?.company  && gf.company  !== 'All' && (t.company as any)?.name  !== gf.company)  return false;
+          if (gf?.search   && gf.search !== '') {
+            const q = gf.search.toLowerCase();
+            if (!t.description?.toLowerCase().includes(q) &&
+                !(t.category as any)?.name?.toLowerCase().includes(q) &&
+                !(t.bank as any)?.name?.toLowerCase().includes(q)) return false;
+          }
+          return true;
+        });
+        setAllTxns(filtered); setLoading(false);
+      }
     }
     load();
     return () => { cancelled = true; };
-  }, [year, month, refreshKey]);
+  }, [year, month, refreshKey, filters]);
 
   useEffect(() => { setPage(1); }, [search, filterKind, filterCat, filterBank, filterMonth, perPage]);
 

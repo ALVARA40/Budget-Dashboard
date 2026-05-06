@@ -103,10 +103,10 @@ function AppShell({ session }: { session: Session | null }) {
           <Routes>
             <Route path="/"                element={<Dashboard      year={selectedYear} month={selectedMonth} refreshKey={refreshKey} filters={filters} />} />
             <Route path="/budget-planning" element={<BudgetPlanning year={selectedYear} month={selectedMonth} />} />
-            <Route path="/budget-tracking" element={<BudgetTracking year={selectedYear} month={selectedMonth} refreshKey={refreshKey} />} />
-            <Route path="/payments"        element={<Payments       year={selectedYear} month={selectedMonth} refreshKey={refreshKey} />} />
-            <Route path="/50-30-20"        element={<Split5030      year={selectedYear} month={selectedMonth} refreshKey={refreshKey} />} />
-            <Route path="/analytics"       element={<Analytics      year={selectedYear} month={selectedMonth} refreshKey={refreshKey} />} />
+            <Route path="/budget-tracking" element={<BudgetTracking year={selectedYear} month={selectedMonth} refreshKey={refreshKey} filters={filters} />} />
+            <Route path="/payments"        element={<Payments       year={selectedYear} month={selectedMonth} refreshKey={refreshKey} filters={filters} />} />
+            <Route path="/50-30-20"        element={<Split5030      year={selectedYear} month={selectedMonth} refreshKey={refreshKey} filters={filters} />} />
+            <Route path="/analytics"       element={<Analytics      year={selectedYear} month={selectedMonth} refreshKey={refreshKey} filters={filters} />} />
             <Route path="/settings"        element={<Settings />} />
             <Route path="*"                element={<Navigate to="/" replace />} />
           </Routes>

@@ -57,7 +57,7 @@ function FilterDropdown({
           strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
           {icon}
         </svg>
-        {active ? value : `All ${label.toLowerCase()}s`}
+        {active ? value : label === "Category" ? "All Categories" : label === "Bank" ? "All Banks" : "All Companies"}
         <Icon name="chev" size={11} stroke={active ? 'var(--brand)' : 'var(--ink-muted)'} />
       </button>
 
@@ -85,7 +85,7 @@ function FilterDropdown({
               {(value === opt || (opt === 'All' && value === 'All')) && (
                 <span style={{ color: 'var(--brand)', fontSize: 10 }}>✓</span>
               )}
-              {opt === 'All' ? `All ${label.toLowerCase()}s` : opt}
+              {opt === 'All' ? label === "Category" ? "All Categories" : label === "Bank" ? "All Banks" : "All Companies" : opt}
             </div>
           ))}
         </div>
