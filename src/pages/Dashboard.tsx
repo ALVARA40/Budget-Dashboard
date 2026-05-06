@@ -7,6 +7,7 @@ import { DeltaPill } from '../components/ui/DeltaPill';
 import { Icon } from '../components/ui/Icon';
 import { fmt$, fmtPct, fmtDate } from '../lib/format';
 import { useDashboardData } from '../lib/useData';
+import type { GlobalFilters } from '../App';
 import { useGoals } from '../lib/useGoals';
 import type { CategoryBreakdownItem } from '../types/index';
 
@@ -431,8 +432,21 @@ function CategoryCard({ title, accent, categories }: { title: string; accent: st
 }
 
 // ── Dashboard Page ────────────────────────────────────────────────────────────────────────────
-export function Dashboard({ year = 2026, month = 4, refreshKey = 0 }: { year?: number; month?: number; refreshKey?: number }) {
+export function Dashboard({ year = 2026, month = 4, refreshKey = 0, filters }: { year?: number; month?: number; refreshKey?: number; filters?: GlobalFilters }) {
   const { kpi, flow, split, budget, transactions, incomeCategories, expenseCategories, savingsCategories, trackedVsBudget, loading } = useDashboardData(year, month, refreshKey);
+  const filteredTransactions = transactions.filter(t => {
+    if (filters?.category && filters.category !== 'All' && (t.category as any)?.name !== filters.category) return false;
+    if (filters?.bank     && filters.bank     !== 'All' && (t.bank as any)?.name     !== filters.bank)     return false;
+    if (filters?.company  && filters.company  !== 'All' && (t.company as any)?.name  !== filters.company)  return false;
+    if (filters?.search   && filters.search !== '') {
+      const q = filters.search.toLowerCase();
+      if (!t.description?.toLowerCase().includes(q) &&
+          !(t.category as any)?.name?.toLowerCase().includes(q) &&
+          !(t.bank as any)?.name?.toLowerCase().includes(q) &&
+          !(t.company as any)?.name?.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
   const [summaryOpen, setSummaryOpen] = useState(true);
 
   const incomeTrend  = flow.map(f => f.income);
@@ -524,7 +538,7 @@ export function Dashboard({ year = 2026, month = 4, refreshKey = 0 }: { year?: n
 
       {/* Bottom row */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr', gap: 14 }}>
-        <RecentTransactionsCard transactions={transactions} />
+        <RecentTransactionsCard transactions={filteredTransactions} />
         <SavingsGoalsCard />
       </div>
 

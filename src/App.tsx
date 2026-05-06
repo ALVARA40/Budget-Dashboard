@@ -21,24 +21,36 @@ interface AppCategory {
   color: string;
 }
 
-function AppShell({ session }: { session: Session | null }) {
-  const [showModal, setShowModal]     = useState(false);
-  const [selectedYear, setYear]       = useState(2026);
-  const [selectedMonth, setMonth]     = useState(4);
-  const [refreshKey, setRefreshKey]   = useState(0);
-  const [categories, setCategories]   = useState<AppCategory[]>([]);
+export interface GlobalFilters {
+  category: string;
+  bank: string;
+  company: string;
+  search: string;
+}
 
-  // Load real categories from Supabase once (and when session changes)
+function AppShell({ session }: { session: Session | null }) {
+  const [showModal, setShowModal]   = useState(false);
+  const [selectedYear, setYear]     = useState(2026);
+  const [selectedMonth, setMonth]   = useState(4);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [categories, setCategories] = useState<AppCategory[]>([]);
+  const [banks, setBanks]           = useState<string[]>([]);
+  const [companies, setCompanies]   = useState<string[]>([]);
+  const [filters, setFilters]       = useState<GlobalFilters>({ category: 'All', bank: 'All', company: 'All', search: '' });
+
+  // Load categories, banks, companies from Supabase once on login
   useEffect(() => {
     if (!session) return;
-    supabase
-      .from('categories')
-      .select('id, name, kind, color')
-      .eq('user_id', session.user.id)
-      .order('name')
-      .then(({ data }) => {
-        if (data) setCategories(data as AppCategory[]);
-      });
+    const uid = session.user.id;
+
+    supabase.from('categories').select('id, name, kind, color').eq('user_id', uid).order('name')
+      .then(({ data }) => { if (data) setCategories(data as AppCategory[]); });
+
+    supabase.from('banks').select('name').eq('user_id', uid).order('name')
+      .then(({ data }) => { if (data) setBanks(data.map((b: any) => b.name)); });
+
+    supabase.from('companies').select('name').eq('user_id', uid).order('name')
+      .then(({ data }) => { if (data) setCompanies(data.map((c: any) => c.name)); });
   }, [session]);
 
   async function handleSaveEntry(entry: {
@@ -47,7 +59,6 @@ function AppShell({ session }: { session: Session | null }) {
   }) {
     if (!session) return;
 
-    // Find existing category or create it
     let categoryId: string | null = null;
     const existing = categories.find(c => c.name === entry.categoryName);
     if (existing) {
@@ -55,34 +66,21 @@ function AppShell({ session }: { session: Session | null }) {
     } else {
       const { data: newCat } = await supabase
         .from('categories')
-        .insert({
-          user_id: session.user.id,
-          name: entry.categoryName,
-          kind: entry.kind,
-          color: '#7C5CFC',
-          monthly_budget: 0,
-        })
-        .select('id, name, kind, color')
-        .single();
+        .insert({ user_id: session.user.id, name: entry.categoryName, kind: entry.kind, color: '#7C5CFC', monthly_budget: 0 })
+        .select('id, name, kind, color').single();
       if (newCat) {
         categoryId = newCat.id;
-        // Add new category to local list so it shows immediately next time
         setCategories(prev => [...prev, newCat as AppCategory].sort((a, b) => a.name.localeCompare(b.name)));
       }
     }
 
     const { error } = await supabase.from('transactions').insert({
-      user_id: session.user.id,
-      date: entry.date,
-      amount: entry.amount,
-      description: entry.description,
-      category_id: categoryId,
-      method: entry.method,
+      user_id: session.user.id, date: entry.date, amount: entry.amount,
+      description: entry.description, category_id: categoryId, method: entry.method,
     });
 
     if (!error) {
       setShowModal(false);
-      // Bump refreshKey so all pages re-fetch their data
       setRefreshKey(k => k + 1);
     }
   }
@@ -95,10 +93,15 @@ function AppShell({ session }: { session: Session | null }) {
           onAddEntry={() => setShowModal(true)}
           selectedYear={selectedYear} selectedMonth={selectedMonth}
           onYearChange={setYear} onMonthChange={setMonth}
+          categoryOptions={categories.map(c => c.name)}
+          bankOptions={banks}
+          companyOptions={companies}
+          filters={filters}
+          onFiltersChange={setFilters}
         />
         <div className="page-content">
           <Routes>
-            <Route path="/"                element={<Dashboard      year={selectedYear} month={selectedMonth} refreshKey={refreshKey} />} />
+            <Route path="/"                element={<Dashboard      year={selectedYear} month={selectedMonth} refreshKey={refreshKey} filters={filters} />} />
             <Route path="/budget-planning" element={<BudgetPlanning year={selectedYear} month={selectedMonth} />} />
             <Route path="/budget-tracking" element={<BudgetTracking year={selectedYear} month={selectedMonth} refreshKey={refreshKey} />} />
             <Route path="/payments"        element={<Payments       year={selectedYear} month={selectedMonth} refreshKey={refreshKey} />} />
