@@ -132,7 +132,7 @@ export function BudgetVsTracked({ year = 2026, month = 4, refreshKey = 0 }: { ye
   const [selMonth, setSelMonth] = useState(month);
   const [selYear, setSelYear]   = useState(year);
   const [sort, setSort]         = useState<SortOption>('Amount spent');
-  const [hideEmpty, setHideEmpty] = useState(true);
+  const [hideEmpty, setHideEmpty] = useState(false);
 
   // Sync when parent changes
   useEffect(() => { setSelMonth(month); }, [month]);
