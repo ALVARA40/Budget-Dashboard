@@ -2,16 +2,13 @@ import { useState } from 'react';
 import { Sparkline } from '../components/charts/Sparkline';
 import { Donut } from '../components/charts/Donut';
 import { MoneyFlowChart } from '../components/charts/MoneyFlowChart';
-import { ProgressBar } from '../components/charts/ProgressBar';
 import { DeltaPill } from '../components/ui/DeltaPill';
-import { Icon } from '../components/ui/Icon';
-import { fmt$, fmtPct, fmtDate } from '../lib/format';
+import { fmt$, fmtPct } from '../lib/format';
 import { useDashboardData } from '../lib/useData';
 import type { GlobalFilters } from '../App';
-import { useGoals } from '../lib/useGoals';
 import type { CategoryBreakdownItem } from '../types/index';
 
-// ── KPI Card with interactive sparkline ──────────────────────────────────────────────
+// ── KPI Card ─────────────────────────────────────────────────────────────────
 function KpiCard({
   label, value, delta, color, trendData, trendLabels, goodOnUp = true, formatValue,
 }: {
@@ -40,413 +37,109 @@ function KpiCard({
   );
 }
 
-// ── Recent transactions with filter dropdown ───────────────────────────────────────────
-function RecentTransactionsCard({ transactions }: { transactions: any[] }) {
-  const [search, setSearch]       = useState('');
-  const [filterKind, setFilterKind] = useState('All');
-  const [filterCat, setFilterCat]   = useState('All');
-  const [filterBank, setFilterBank] = useState('All');
-  const [showSearch, setShowSearch] = useState(false);
-
-  // Derive unique category and bank options from transactions
-  const categories = Array.from(new Set(transactions.map(t => (t.category as any)?.name).filter(Boolean))).sort();
-  const banks      = Array.from(new Set(transactions.map(t => (t.bank as any)?.name).filter(Boolean))).sort();
-
-  const list = transactions.filter(t => {
-    if (filterKind === 'Income'   && t.amount <= 0) return false;
-    if (filterKind === 'Expenses' && t.amount >= 0) return false;
-    if (filterCat  !== 'All' && (t.category as any)?.name !== filterCat) return false;
-    if (filterBank !== 'All' && (t.bank as any)?.name !== filterBank) return false;
-    if (search && !t.description?.toLowerCase().includes(search.toLowerCase()) &&
-        !(t.category as any)?.name?.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  }).slice(0, 8);
-
-  const hasFilter = filterKind !== 'All' || filterCat !== 'All' || filterBank !== 'All' || search !== '';
-
-  function Chip({ label, options, value, onChange }: { label: string; options: string[]; value: string; onChange: (v: string) => void }) {
-    const [open, setOpen] = useState(false);
-    const active = value !== 'All';
-    return (
-      <div style={{ position: 'relative' }}>
-        <button onClick={() => setOpen(v => !v)} className="chip" style={{
-          background: active ? 'var(--brand-soft)' : undefined,
-          color: active ? 'var(--brand)' : undefined,
-          border: active ? '1px solid var(--brand)' : undefined,
-        }}>
-          {active ? value : label}
-          <Icon name="chev" size={11} stroke={active ? 'var(--brand)' : 'var(--ink-muted)'} />
-        </button>
-        {open && (
-          <>
-            <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 9 }} />
-            <div style={{
-              position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 10,
-              background: 'var(--surface)', border: '1px solid var(--line)',
-              borderRadius: 10, boxShadow: '0 14px 32px -10px rgba(15,14,26,0.18)',
-              padding: 4, minWidth: 160, maxHeight: 240, overflowY: 'auto',
-            }}>
-              {['All', ...options].map(opt => (
-                <div key={opt} onClick={() => { onChange(opt); setOpen(false); }} style={{
-                  padding: '7px 12px', fontSize: 12.5, borderRadius: 6, cursor: 'pointer',
-                  color: value === opt ? 'var(--brand)' : 'var(--ink)',
-                  fontWeight: value === opt ? 600 : 500,
-                }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                >{opt === 'All' ? 'All ' + label + 's' : opt}</div>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-    );
-  }
+// ── TrackedVsBudget ───────────────────────────────────────────────────────────
+function TrackedVsBudget({
+  data, currentMonth,
+}: {
+  data: { m: string; income: number; expenses: number; savings: number }[];
+  currentMonth: string;
+}) {
+  const months = data.length > 0 ? data : [];
+  const maxVal = Math.max(...months.flatMap(m => [m.income, m.expenses, m.savings]), 1);
 
   return (
-    <div className="card" style={{ padding: '18px 20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Recent transactions</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {/* Search toggle */}
-          <button onClick={() => setShowSearch(v => !v)} style={{
-            width: 30, height: 30, borderRadius: 999, display: 'grid', placeItems: 'center',
-            background: showSearch ? 'var(--brand-soft)' : 'var(--bg)',
-            border: '1px solid ' + (showSearch ? 'var(--brand)' : 'var(--line)'),
-            cursor: 'pointer',
-          }}>
-            <Icon name="search" size={13} stroke={showSearch ? 'var(--brand)' : 'var(--ink-soft)'} />
-          </button>
-          {hasFilter && (
-            <button onClick={() => { setFilterKind('All'); setFilterCat('All'); setFilterBank('All'); setSearch(''); }} style={{
-              fontSize: 11, padding: '3px 8px', borderRadius: 999, cursor: 'pointer',
-              background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink-soft)',
-            }}>Clear</button>
-          )}
-        </div>
-      </div>
-
-      {/* Filter chips row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: showSearch || hasFilter ? 10 : 0, flexWrap: 'wrap' }}>
-        {/* Kind filter */}
-        <div style={{ display: 'flex', gap: 4 }}>
-          {['All', 'Income', 'Expenses'].map(k => (
-            <button key={k} onClick={() => setFilterKind(k)} style={{
-              padding: '4px 10px', fontSize: 11.5, fontWeight: 600, borderRadius: 999, cursor: 'pointer',
-              background: filterKind === k ? 'var(--brand)' : 'var(--bg)',
-              color: filterKind === k ? '#fff' : 'var(--ink-soft)',
-              border: '1px solid ' + (filterKind === k ? 'var(--brand)' : 'var(--line)'),
-            }}>{k}</button>
-          ))}
-        </div>
-        <Chip label="Category" options={categories} value={filterCat}  onChange={setFilterCat} />
-        <Chip label="Bank"     options={banks}      value={filterBank} onChange={setFilterBank} />
-      </div>
-
-      {/* Search bar */}
-      {showSearch && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10,
-          background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 8, padding: '6px 10px',
-        }}>
-          <Icon name="search" size={13} stroke="var(--ink-muted)" />
-          <input
-            autoFocus
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search description or category…"
-            style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 12.5, color: 'var(--ink)', fontFamily: 'inherit' }}
-          />
-          {search && <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-muted)', fontSize: 14, lineHeight: 1 }}>×</button>}
-        </div>
-      )}
-
-      {list.length === 0 ? (
-        <div style={{ padding: '24px 0', textAlign: 'center', fontSize: 12, color: 'var(--ink-soft)' }}>
-          No transactions match your filters.
-        </div>
-      ) : list.map((t, i) => (
-        <div key={t.id} style={{ display: 'grid', gridTemplateColumns: '70px 1fr auto auto', alignItems: 'center', gap: 12, padding: '9px 0', borderTop: i === 0 ? 'none' : '1px solid var(--line)' }}>
-          <div style={{ fontSize: 11.5, color: 'var(--ink-muted)', fontVariantNumeric: 'tabular-nums' }}>{fmtDate(t.date)}</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-            <div style={{ width: 30, height: 30, borderRadius: 9, flexShrink: 0, background: t.amount > 0 ? 'var(--green-soft)' : 'var(--brand-soft)', color: t.amount > 0 ? 'var(--green)' : 'var(--brand)', display: 'grid', placeItems: 'center' }}>
-              <Icon name={t.amount > 0 ? 'arrowdown' : 'arrowup'} size={13} sw={2.2} />
-            </div>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</div>
-              <div style={{ fontSize: 11, color: 'var(--ink-muted)' }}>{(t.category as any)?.name}</div>
-            </div>
-          </div>
-          <div style={{ fontSize: 11, padding: '3px 8px', borderRadius: 999, background: 'var(--bg)', color: 'var(--ink-soft)', whiteSpace: 'nowrap' }}>{(t.category as any)?.name}</div>
-          <div style={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: t.amount > 0 ? 'var(--green)' : 'var(--ink)', whiteSpace: 'nowrap' }}>
-            {t.amount > 0 ? '+' : ''}{fmt$(t.amount, { cents: true })}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ── Savings goals with add-goal form (real Supabase) ──────────────────────────────────
-function SavingsGoalsCard() {
-  const { goals, loading: goalsLoading, addGoal, deleteGoal } = useGoals();
-  const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({ name: '', target: '', saved: '' });
-  const [submitting, setSubmitting] = useState(false);
-
-  async function submit() {
-    if (!form.name || !form.target) return;
-    setSubmitting(true);
-    await addGoal(form.name, Number(form.target) || 0, Number(form.saved) || 0);
-    setForm({ name: '', target: '', saved: '' });
-    setAdding(false);
-    setSubmitting(false);
-  }
-
-  return (
-    <div className="card" style={{ padding: '18px 20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: adding ? 12 : 14 }}>
+    <div className="card" style={{ padding: '18px 22px 14px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Savings goals</div>
-          <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', marginTop: 2 }}>
-            {goalsLoading ? 'Loading…' : `${goals.length} active`}
-          </div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Tracked vs. Budget</div>
+          <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', marginTop: 2 }}>Monthly income / expenses / savings</div>
         </div>
-        <div
-          onClick={() => setAdding(v => !v)}
-          title="Add a savings goal"
-          style={{
-            width: 26, height: 26, borderRadius: 8, display: 'grid', placeItems: 'center', cursor: 'pointer',
-            background: adding ? 'var(--brand)' : 'var(--bg)',
-            color: adding ? '#fff' : 'var(--ink-soft)',
-            transition: 'background 0.15s',
-          }}>
-          <Icon name="plus" size={13} sw={2.2} />
+        <div style={{ display: 'flex', gap: 14, fontSize: 11.5, color: 'var(--ink-soft)', fontWeight: 500 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 999, background: '#2FB37A', display: 'inline-block' }} />
+            {' '}Income
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 999, background: '#D8443F', display: 'inline-block' }} />
+            {' '}Expenses
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 999, background: '#3B6BC8', display: 'inline-block' }} />
+            {' '}Savings
+          </span>
         </div>
       </div>
-
-      {adding && (
-        <div style={{ marginBottom: 14, padding: 12, background: 'var(--bg)', borderRadius: 10, border: '1px solid var(--line)' }}>
-          <input
-            value={form.name}
-            onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-            placeholder="Goal name (e.g. Down payment)"
-            style={{ width: '100%', padding: '8px 10px', fontSize: 12, border: '1px solid var(--line)', borderRadius: 8, background: 'var(--surface)', color: 'var(--ink)', fontFamily: 'inherit', marginBottom: 6, boxSizing: 'border-box' }}
-          />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 8 }}>
-            <input
-              value={form.target}
-              onChange={e => setForm(f => ({ ...f, target: e.target.value.replace(/[^0-9.]/g, '') }))}
-              placeholder="Target ($)"
-              style={{ width: '100%', padding: '8px 10px', fontSize: 12, border: '1px solid var(--line)', borderRadius: 8, background: 'var(--surface)', color: 'var(--ink)', fontFamily: 'inherit', boxSizing: 'border-box' }}
-            />
-            <input
-              value={form.saved}
-              onChange={e => setForm(f => ({ ...f, saved: e.target.value.replace(/[^0-9.]/g, '') }))}
-              placeholder="Saved so far ($)"
-              style={{ width: '100%', padding: '8px 10px', fontSize: 12, border: '1px solid var(--line)', borderRadius: 8, background: 'var(--surface)', color: 'var(--ink)', fontFamily: 'inherit', boxSizing: 'border-box' }}
-            />
-          </div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <div onClick={submitting ? undefined : submit} style={{ flex: 1, background: submitting ? 'var(--ink-muted)' : 'var(--brand)', color: '#fff', padding: '7px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, textAlign: 'center', cursor: submitting ? 'not-allowed' : 'pointer' }}>
-              {submitting ? 'Saving…' : 'Add goal'}
-            </div>
-            <div onClick={() => { setAdding(false); setForm({ name: '', target: '', saved: '' }); }} style={{ background: 'var(--surface)', border: '1px solid var(--line)', color: 'var(--ink-soft)', padding: '7px 12px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>Cancel</div>
-          </div>
-        </div>
-      )}
-
-      {goalsLoading ? (
-        <div style={{ padding: '20px 0', textAlign: 'center', fontSize: 12, color: 'var(--ink-muted)' }}>Loading goals…</div>
-      ) : goals.length === 0 ? (
-        <div style={{ padding: '20px 0', textAlign: 'center', fontSize: 12, color: 'var(--ink-muted)' }}>No goals yet — add one above.</div>
+      {months.length === 0 ? (
+        <div style={{ textAlign: 'center', color: 'var(--ink-muted)', fontSize: 13, padding: '20px 0' }}>No data for this period</div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {goals.map(g => {
-            const pct = g.target > 0 ? (g.current / g.target) * 100 : 0;
-            return (
-              <div key={g.id}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 7 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 600 }}>{g.name}</div>
-                    <div
-                      onClick={() => deleteGoal(g.id)}
-                      title="Remove goal"
-                      style={{ fontSize: 11, color: 'var(--ink-muted)', cursor: 'pointer', lineHeight: 1, padding: '1px 4px', borderRadius: 4 }}
-                      onMouseEnter={e => (e.currentTarget.style.color = 'var(--red)')}
-                      onMouseLeave={e => (e.currentTarget.style.color = 'var(--ink-muted)')}
-                    >×</div>
-                  </div>
-                  <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', fontVariantNumeric: 'tabular-nums' }}>
-                    <b style={{ color: 'var(--ink)', fontWeight: 700 }}>{fmt$(g.current)}</b> / {fmt$(g.target)}
-                  </div>
-                </div>
-                <ProgressBar pct={pct} color={g.color} track="var(--bg)" height={6} />
-                <div style={{ fontSize: 10.5, color: 'var(--ink-muted)', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{pct.toFixed(0)}% saved</div>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', height: 120 }}>
+          {months.map(m => (
+            <div key={m.m} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+              <div style={{ display: 'flex', gap: 2, alignItems: 'flex-end', height: 90, width: '100%', justifyContent: 'center' }}>
+                {[
+                  { val: m.income,   color: '#2FB37A' },
+                  { val: m.expenses, color: '#D8443F' },
+                  { val: m.savings,  color: '#3B6BC8' },
+                ].map((bar, i) => (
+                  <div
+                    key={i}
+                    title={fmt$(bar.val)}
+                    style={{
+                      flex: 1,
+                      height: `${Math.max(2, (bar.val / maxVal) * 90)}px`,
+                      background: bar.color,
+                      borderRadius: '3px 3px 0 0',
+                      opacity: m.m === currentMonth ? 1 : 0.55,
+                      transition: 'height 0.3s',
+                    }}
+                  />
+                ))}
               </div>
-            );
-          })}
+              <div style={{ fontSize: 10, color: m.m === currentMonth ? 'var(--ink)' : 'var(--ink-muted)', fontWeight: m.m === currentMonth ? 700 : 400 }}>
+                {m.m}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
   );
 }
 
-// ── Tracked vs Budget Chart with hover ───────────────────────────────────────────────
-type TvbRow = { m: string; income: number; expenses: number; savings: number; budgetIncome?: number; budgetExpenses?: number; budgetSavings?: number };
-function TrackedVsBudget({ data, currentMonth = 'Apr' }: { data: TvbRow[]; currentMonth?: string }) {
-  const [hover, setHover] = useState<{ i: number; key: string } | null>(null);
-
-  const seriesDef = [
-    { key: 'income'   as const, label: 'Income',   dark: '#2FB37A', light: '#CFEADF' },
-    { key: 'expenses' as const, label: 'Expenses', dark: '#D8443F', light: '#F5C9C7' },
-    { key: 'savings'  as const, label: 'Savings',  dark: '#1F3F8A', light: '#CCD4E8' },
-  ];
-  const allValues: number[] = [];
-  data.forEach(d => { seriesDef.forEach(s => { allValues.push(d[s.key]); }); });
-  const niceMax = Math.ceil(Math.max(...allValues) / 10000) * 10000;
-  const tickCount = 9;
-  const ticks = Array.from({ length: tickCount + 1 }, (_, i) => Math.round((niceMax / tickCount) * i));
-  const plotH = 210;
-
-  return (
-    <div className="card" style={{ padding: '20px 22px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Tracked (vs. Budget)</div>
-        <div style={{ display: 'flex', gap: 18, fontSize: 11.5, color: 'var(--ink)', fontWeight: 500, background: 'var(--bg)', borderRadius: 10, padding: '8px 14px', border: '1px solid var(--line)' }}>
-          {seriesDef.map(s => (
-            <span key={s.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ display: 'inline-flex', width: 14, height: 10, borderRadius: 2, overflow: 'hidden' }}>
-                <span style={{ flex: 1, background: s.dark }} /><span style={{ flex: 1, background: s.light }} />
-              </span>{s.label}
-            </span>
-          ))}
-        </div>
-      </div>
-      <div style={{ display: 'flex', marginTop: 16 }}>
-        <div style={{ width: 52, display: 'flex', flexDirection: 'column-reverse', justifyContent: 'space-between', height: plotH, paddingRight: 8 }}>
-          {ticks.map((t, i) => (
-            <div key={i} style={{ fontSize: 10, color: 'var(--ink-muted)', fontVariantNumeric: 'tabular-nums', textAlign: 'right', lineHeight: 1, transform: 'translateY(50%)' }}>
-              {i === 0 ? '' : t.toLocaleString('en-US')}
-            </div>
-          ))}
-        </div>
-        <div style={{ flex: 1, position: 'relative', height: plotH }}>
-          {ticks.map((_, i) => (<div key={i} style={{ position: 'absolute', left: 0, right: 0, top: `${(1 - i / tickCount) * 100}%`, height: 1, background: 'var(--line)', opacity: 0.7 }} />))}
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'flex-end' }}>
-            {data.map((d, i) => (
-              <div key={i} style={{ flex: 1, height: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 3, position: 'relative' }}>
-                {seriesDef.map(s => {
-                  const trackedVal = d[s.key];
-                  const isHover = hover?.i === i && hover?.key === s.key;
-                  return (
-                    <div
-                      key={s.key}
-                      onMouseEnter={() => setHover({ i, key: s.key })}
-                      onMouseLeave={() => setHover(null)}
-                      style={{
-                        width: 11, height: `${(trackedVal / niceMax) * 100}%`,
-                        display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
-                        position: 'relative', cursor: 'pointer',
-                        opacity: hover && !isHover ? 0.45 : 1,
-                        transition: 'opacity 0.12s',
-                      }}>
-                      <div style={{ height: '100%', background: s.dark, borderRadius: '3px 3px 0 0' }} />
-                      {isHover && (
-                        <div style={{
-                          position: 'absolute', bottom: '100%', left: '50%',
-                          transform: 'translate(-50%, -8px)',
-                          background: 'var(--ink)', color: '#fff',
-                          padding: '7px 11px', borderRadius: 9,
-                          fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap',
-                          boxShadow: '0 10px 22px -8px rgba(15,14,26,0.35)',
-                          zIndex: 20, pointerEvents: 'none',
-                        }}>
-                          <div style={{ fontSize: 9.5, color: '#BFB6F5', letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 3 }}>{d.m} · {s.label}</div>
-                          <div style={{ display: 'flex', gap: 10, fontVariantNumeric: 'tabular-nums' }}>
-                            <span>Tracked: <b>${trackedVal.toLocaleString()}</b></span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-                {d.m === currentMonth && <div style={{ position: 'absolute', bottom: -6, left: 0, right: 0, height: 2, background: 'var(--ink)', borderRadius: 1 }} />}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-      <div style={{ display: 'flex', marginTop: 10, paddingLeft: 52 }}>
-        {data.map((d, i) => (
-          <div key={i} style={{ flex: 1, textAlign: 'center', fontSize: 11, color: d.m === currentMonth ? 'var(--ink)' : 'var(--ink-soft)', fontWeight: d.m === currentMonth ? 700 : 500 }}>{d.m}</div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ── Category Card ────────────────────────────────────────────────────────────────────────────
+// ── CategoryCard ──────────────────────────────────────────────────────────────
 function CategoryCard({ title, accent, categories }: { title: string; accent: string; categories: CategoryBreakdownItem[] }) {
-  const items = categories.filter(c => c.name !== 'Other');
-  const other = categories.find(c => c.name === 'Other') || { value: 0, color: '#ECEAF4' };
-  const total = categories.reduce((s, c) => s + c.value, 0);
-  const donutData = categories.map(c => ({ value: Math.max(c.value, 0.0001), color: c.color, label: c.name }));
+  const total = categories.reduce((s, c) => s + Math.abs(c.value), 0);
   return (
-    <div className="card" style={{ padding: '20px 22px' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 6 }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: accent }}>{title}</span>
-        <span style={{ fontSize: 12, color: 'var(--ink-soft)', fontWeight: 500 }}>Categories (Tracked)</span>
+    <div className="card" style={{ padding: '16px 18px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>{title}</div>
+        <div style={{ fontSize: 12, color: accent, fontWeight: 600 }}>{fmt$(total)}</div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginTop: 14 }}>
-        <div style={{ width: 150, height: 150, flexShrink: 0 }}>
-          <Donut data={donutData} size={150} thickness={22}
-            centerLabel={title}
-            centerValue={'$' + total.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+        <div style={{ flexShrink: 0 }}>
+          <Donut
+            data={categories.map(c => ({ value: Math.abs(c.value), color: c.color, label: c.name }))}
+            size={90} thickness={16}
+            centerLabel="" centerValue=""
           />
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          {items.map(c => (
-            <div key={c.name} style={{ display: 'grid', gridTemplateColumns: '14px 1fr auto', alignItems: 'center', gap: 10, padding: '4px 0', fontSize: 12.5 }}>
-              <span style={{ width: 10, height: 10, borderRadius: 3, background: c.color, display: 'inline-block' }} />
-              <span style={{ color: 'var(--ink)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
-              <span style={{ color: 'var(--ink)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{c.value.toLocaleString('en-US')}</span>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
+          {categories.slice(0, 5).map(c => (
+            <div key={c.name} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5 }}>
+              <span style={{ width: 8, height: 8, borderRadius: 999, background: c.color, flexShrink: 0, display: 'inline-block' }} />
+              <span style={{ flex: 1, color: 'var(--ink-soft)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
+              <span style={{ color: 'var(--ink)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmt$(Math.abs(c.value))}</span>
             </div>
           ))}
-          <div style={{ borderTop: '1px solid var(--line)', marginTop: 8, paddingTop: 8 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '14px 1fr auto', alignItems: 'center', gap: 10, padding: '3px 0', fontSize: 12.5 }}>
-              <span style={{ width: 10, height: 10, borderRadius: 3, background: other.color, display: 'inline-block' }} />
-              <span style={{ color: 'var(--ink-soft)' }}>Other</span>
-              <span style={{ color: 'var(--ink-soft)', fontVariantNumeric: 'tabular-nums' }}>{other.value.toLocaleString('en-US')}</span>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '14px 1fr auto', alignItems: 'center', gap: 10, padding: '3px 0', fontSize: 13 }}>
-              <span />
-              <span style={{ color: 'var(--ink)', fontWeight: 700 }}>Total</span>
-              <span style={{ color: 'var(--ink)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{total.toLocaleString('en-US')}</span>
-            </div>
-          </div>
         </div>
       </div>
     </div>
   );
 }
 
-// ── Dashboard Page ────────────────────────────────────────────────────────────────────────────
-export function Dashboard({ year = 2026, month = 4, refreshKey = 0, filters }: { year?: number; month?: number; refreshKey?: number; filters?: GlobalFilters }) {
-  const { kpi, flow, split, budget, transactions, incomeCategories, expenseCategories, savingsCategories, trackedVsBudget, loading } = useDashboardData(year, month, refreshKey);
-  const filteredTransactions = transactions.filter(t => {
-    if (filters?.category && filters.category !== 'All' && (t.category as any)?.name !== filters.category) return false;
-    if (filters?.bank     && filters.bank     !== 'All' && (t.bank as any)?.name     !== filters.bank)     return false;
-    if (filters?.company  && filters.company  !== 'All' && (t.company as any)?.name  !== filters.company)  return false;
-    if (filters?.search   && filters.search !== '') {
-      const q = filters.search.toLowerCase();
-      if (!t.description?.toLowerCase().includes(q) &&
-          !(t.category as any)?.name?.toLowerCase().includes(q) &&
-          !(t.bank as any)?.name?.toLowerCase().includes(q) &&
-          !(t.company as any)?.name?.toLowerCase().includes(q)) return false;
-    }
-    return true;
-  });
+// ── Dashboard page ────────────────────────────────────────────────────────────
+export function Dashboard({ year = 2026, month = 4, refreshKey = 0, filters: _filters }: { year?: number; month?: number; refreshKey?: number; filters?: GlobalFilters }) {
+  const { kpi, flow, split, budget, incomeCategories, expenseCategories, savingsCategories, trackedVsBudget, loading } = useDashboardData(year, month, refreshKey);
   const [summaryOpen, setSummaryOpen] = useState(true);
 
   const incomeTrend  = flow.map(f => f.income);
@@ -478,17 +171,26 @@ export function Dashboard({ year = 2026, month = 4, refreshKey = 0, filters }: {
 
       {/* Middle row */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.45fr 1fr 1.25fr', gap: 14 }}>
+
+        {/* Money flow chart */}
         <div className="card" style={{ padding: '18px 22px 14px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Money flow</div>
             <div style={{ display: 'flex', gap: 14, fontSize: 12, color: 'var(--ink)', fontWeight: 500 }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 8, height: 8, borderRadius: 999, background: 'var(--brand)', display: 'inline-block' }} /> Income</span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 8, height: 8, borderRadius: 999, background: 'var(--expense-bar)', display: 'inline-block' }} /> Expense</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 999, background: 'var(--brand)', display: 'inline-block' }} />
+                {' '}Income
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 999, background: 'var(--expense-bar)', display: 'inline-block' }} />
+                {' '}Expense
+              </span>
             </div>
           </div>
           <MoneyFlowChart data={flow.length > 0 ? flow : [{m:'–', income:0, expenses:0}]} />
         </div>
 
+        {/* 50/30/20 donut */}
         <div className="card" style={{ padding: '18px 20px' }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>50 / 30 / 20</div>
           <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', marginTop: 2 }}>Needs · Wants · Savings</div>
@@ -512,6 +214,7 @@ export function Dashboard({ year = 2026, month = 4, refreshKey = 0, filters }: {
           </div>
         </div>
 
+        {/* Budget donut */}
         <div className="card" style={{ padding: '18px 20px' }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Budget</div>
           <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', marginTop: 2 }}>By category · top spending</div>
@@ -534,12 +237,6 @@ export function Dashboard({ year = 2026, month = 4, refreshKey = 0, filters }: {
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Bottom row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr', gap: 14 }}>
-        <RecentTransactionsCard transactions={filteredTransactions} />
-        <SavingsGoalsCard />
       </div>
 
       {/* Summary section — collapsible */}
