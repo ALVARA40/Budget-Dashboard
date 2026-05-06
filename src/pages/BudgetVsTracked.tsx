@@ -87,9 +87,22 @@ function CatRowItem({
   const isEmpty = spent === 0 && budget === 0;
   if (hideEmpty && isEmpty) return null;
 
-  const pct = budget > 0 ? (spent / budget) * 100 : spent > 0 ? 100 : 0;
-  const hasSpent  = spent > 0;
+  const pct       = budget > 0 ? (spent / budget) * 100 : spent > 0 ? 100 : 0;
   const hasBudget = budget > 0;
+
+  if (isEmpty) {
+    return (
+      <div style={{
+        padding: '8px 20px',
+        borderBottom: '1px solid var(--line)',
+        background: 'var(--surface)',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <span style={{ fontSize: 12.5, color: 'var(--ink-muted)', fontWeight: 400 }}>{name}</span>
+        <span style={{ fontSize: 12, color: 'var(--ink-muted)' }}>–</span>
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -98,23 +111,15 @@ function CatRowItem({
       background: 'var(--surface)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <span style={{ fontSize: 13, color: isEmpty ? 'var(--ink-muted)' : 'var(--ink)', fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {name}
         </span>
-        {!isEmpty && <PctPill pct={pct} empty={!hasSpent && !hasBudget} />}
-        {isEmpty && <span style={{ fontSize: 12, color: 'var(--ink-muted)' }}>–</span>}
+        <PctPill pct={pct} empty={false} />
       </div>
-      {!isEmpty && (
-        <>
-          <ProgressBar pct={pct} kind={kind} />
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 5, fontSize: 11.5, color: 'var(--ink-soft)', fontVariantNumeric: 'tabular-nums' }}>
-            {fmt$(spent)} / {hasBudget ? fmt$(budget) : '–'}
-          </div>
-        </>
-      )}
-      {isEmpty && (
-        <div style={{ fontSize: 11.5, color: 'var(--ink-muted)', marginTop: 3 }}>–</div>
-      )}
+      <ProgressBar pct={pct} kind={kind} />
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 5, fontSize: 11.5, color: 'var(--ink-soft)', fontVariantNumeric: 'tabular-nums' }}>
+        {fmt$(spent)} / {hasBudget ? fmt$(budget) : '–'}
+      </div>
     </div>
   );
 }
@@ -126,8 +131,8 @@ export function BudgetVsTracked({ year = 2026, month = 4, refreshKey = 0 }: { ye
   const [search, setSearch]     = useState('');
   const [selMonth, setSelMonth] = useState(month);
   const [selYear, setSelYear]   = useState(year);
-  const [sort, setSort]         = useState<SortOption>('Sheet order');
-  const [hideEmpty, setHideEmpty] = useState(false);
+  const [sort, setSort]         = useState<SortOption>('Amount spent');
+  const [hideEmpty, setHideEmpty] = useState(true);
 
   // Sync when parent changes
   useEffect(() => { setSelMonth(month); }, [month]);
