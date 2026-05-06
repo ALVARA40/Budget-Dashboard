@@ -203,7 +203,7 @@ export function BudgetPlanning({ year = 2026, month = 4 }: { year?: number; mont
 
   const fmt = (n: number) => n === 0 ? '–' : n.toLocaleString('en-US');
 
-  const labelW = 170;
+  const labelW = 120;
 
   // ── Header cell helpers ────────────────────────────────────────────────────
   function headerCellStyle(pal: typeof PALETTES.income): React.CSSProperties {
