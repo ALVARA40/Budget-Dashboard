@@ -12,17 +12,10 @@ const SPLIT_CONFIG = [
   { bucket: 'Savings', color: '#33C58A', target: 20 },
 ];
 
-const DEFAULT_WANTS = [
-  'dining out','shopping','streaming','movies','concerts','videogames','apps','toys','travel',
-  'hotel','beverages','gifts','vacations','hair','gym','clothing','home decor','extracurricular',
-];
-const DEFAULT_SAVINGS_KINDS = ['savings'];
-
-function defaultBucket(catName: string, kind: string): 'Needs' | 'Wants' | 'Savings' {
-  if (DEFAULT_SAVINGS_KINDS.includes(kind)) return 'Savings';
-  if (DEFAULT_WANTS.some(w => catName.toLowerCase().includes(w))) return 'Wants';
-  if (kind === 'income') return 'Needs'; // income treated separately but still needs a bucket
-  return 'Needs';
+function defaultBucket(_catName: string, kind: string): 'Needs' | 'Wants' | 'Savings' {
+  if (kind === 'savings') return 'Savings';
+  if (kind === 'want')    return 'Wants';
+  return 'Needs'; // 'need' or anything else
 }
 
 interface CatItem { name: string; kind: string; amount: number; bucket: 'Needs' | 'Wants' | 'Savings' }
