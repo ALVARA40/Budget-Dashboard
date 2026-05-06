@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { Icon } from '../ui/Icon';
 import { MONTH_NAMES } from '../../lib/format';
 
@@ -13,6 +14,8 @@ const THIS_YEAR = new Date().getFullYear();
 const YEARS = [THIS_YEAR - 2, THIS_YEAR - 1, THIS_YEAR, THIS_YEAR + 1];
 
 export function Header({ onAddEntry, selectedYear, selectedMonth, onYearChange, onMonthChange }: Props) {
+  const navigate = useNavigate();
+
   return (
     <header style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -56,13 +59,18 @@ export function Header({ onAddEntry, selectedYear, selectedMonth, onYearChange, 
           </select>
         </div>
 
-        {/* Filter chips */}
+        {/* Filter chips — navigate to Budget Tracking where full filtering is available */}
         {[
           { label: 'Category', iconPath: <><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></> },
-          { label: 'Bank', iconPath: <><path d="M3 10l9-6 9 6"/><path d="M5 10v9M12 10v9M19 10v9M3 21h18"/></> },
-          { label: 'Company', iconPath: <><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V4h8v3"/><path d="M3 13h18"/></> },
+          { label: 'Bank',     iconPath: <><path d="M3 10l9-6 9 6"/><path d="M5 10v9M12 10v9M19 10v9M3 21h18"/></> },
+          { label: 'Company',  iconPath: <><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V4h8v3"/><path d="M3 13h18"/></> },
         ].map(chip => (
-          <button key={chip.label} className="chip">
+          <button
+            key={chip.label}
+            className="chip"
+            onClick={() => navigate('/budget-tracking')}
+            title={`Filter by ${chip.label} — opens Budget Tracking`}
+          >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ink-soft)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               {chip.iconPath}
             </svg>
@@ -71,12 +79,16 @@ export function Header({ onAddEntry, selectedYear, selectedMonth, onYearChange, 
           </button>
         ))}
 
-        {/* Search */}
-        <button style={{
-          width: 34, height: 34, borderRadius: 999,
-          background: 'var(--surface)', border: '1px solid var(--line)',
-          display: 'grid', placeItems: 'center', color: 'var(--ink-soft)', cursor: 'pointer',
-        }}>
+        {/* Search — navigate to Budget Tracking */}
+        <button
+          onClick={() => navigate('/budget-tracking')}
+          title="Search transactions — opens Budget Tracking"
+          style={{
+            width: 34, height: 34, borderRadius: 999,
+            background: 'var(--surface)', border: '1px solid var(--line)',
+            display: 'grid', placeItems: 'center', color: 'var(--ink-soft)', cursor: 'pointer',
+          }}
+        >
           <Icon name="search" size={15} />
         </button>
 

@@ -136,9 +136,12 @@ export function useDashboardData(year: number, month: number, refreshKey = 0): D
         .sort((a, b) => b.spent - a.spent)
         .slice(0, 8);
 
-      // Category breakdown cards
-      const CAT_COLORS = ['#7C5CFC','#F5B544','#33C58A','#3B7BCE','#D8443F','#F97316','#14B8A6','#8B5CF6'];
-      function buildBreakdown(filtered: NonNullable<typeof txns>): CategoryBreakdownItem[] {
+      // Category breakdown cards — themed color scales per type
+      const INCOME_COLORS  = ['#2FB37A','#52C98E','#7FDBA5','#AAECC0','#CFFADF'];
+      const EXPENSE_COLORS = ['#D8443F','#E26E6B','#EC9896','#F3BCBA','#FAD9D8'];
+      const SAVINGS_COLORS = ['#1F3F8A','#3B6BC8','#6B96DE','#9ABCEE','#C5D9F4'];
+
+      function buildBreakdown(filtered: NonNullable<typeof txns>, palette: string[]): CategoryBreakdownItem[] {
         const map: Record<string, number> = {};
         filtered.forEach(t => {
           const name = (t.category as any)?.name || 'Other';
@@ -146,15 +149,15 @@ export function useDashboardData(year: number, month: number, refreshKey = 0): D
         });
         const sorted = Object.entries(map).sort((a, b) => b[1] - a[1]);
         const top = sorted.slice(0, 5).map(([name, value], i) => ({
-          name, value: Math.round(value), color: CAT_COLORS[i % CAT_COLORS.length],
+          name, value: Math.round(value), color: palette[i % palette.length],
         }));
         const otherVal = sorted.slice(5).reduce((s, [, v]) => s + v, 0);
         return [...top, { name: 'Other', value: Math.round(otherVal), color: '#ECEAF4' }];
       }
 
-      const incomeCategories  = buildBreakdown(txns.filter(t => t.amount > 0));
-      const expenseCategories = buildBreakdown(txns.filter(t => t.amount < 0 && (t.category as any)?.kind !== 'savings'));
-      const savingsCategories = buildBreakdown(txns.filter(t => t.amount < 0 && (t.category as any)?.kind === 'savings'));
+      const incomeCategories  = buildBreakdown(txns.filter(t => t.amount > 0),                                                    INCOME_COLORS);
+      const expenseCategories = buildBreakdown(txns.filter(t => t.amount < 0 && (t.category as any)?.kind !== 'savings'),         EXPENSE_COLORS);
+      const savingsCategories = buildBreakdown(txns.filter(t => t.amount < 0 && (t.category as any)?.kind === 'savings'),         SAVINGS_COLORS);
 
       // Tracked vs Budget — full year monthly breakdown
       const { data: yearTxns } = await supabase

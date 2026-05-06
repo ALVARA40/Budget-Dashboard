@@ -41,62 +41,128 @@ function KpiCard({
 
 // ── Recent transactions with filter dropdown ───────────────────────────────────────────
 function RecentTransactionsCard({ transactions }: { transactions: any[] }) {
-  const [open, setOpen] = useState(false);
-  const [filter, setFilter] = useState('All');
+  const [search, setSearch]       = useState('');
+  const [filterKind, setFilterKind] = useState('All');
+  const [filterCat, setFilterCat]   = useState('All');
+  const [filterBank, setFilterBank] = useState('All');
+  const [showSearch, setShowSearch] = useState(false);
 
-  const filterMap: Record<string, (t: any) => boolean> = {
-    'All':      () => true,
-    'Income':   t => t.amount > 0,
-    'Expenses': t => t.amount < 0,
-  };
-  const list = transactions.filter(filterMap[filter]).slice(0, 5);
+  // Derive unique category and bank options from transactions
+  const categories = Array.from(new Set(transactions.map(t => (t.category as any)?.name).filter(Boolean))).sort();
+  const banks      = Array.from(new Set(transactions.map(t => (t.bank as any)?.name).filter(Boolean))).sort();
+
+  const list = transactions.filter(t => {
+    if (filterKind === 'Income'   && t.amount <= 0) return false;
+    if (filterKind === 'Expenses' && t.amount >= 0) return false;
+    if (filterCat  !== 'All' && (t.category as any)?.name !== filterCat) return false;
+    if (filterBank !== 'All' && (t.bank as any)?.name !== filterBank) return false;
+    if (search && !t.description?.toLowerCase().includes(search.toLowerCase()) &&
+        !(t.category as any)?.name?.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  }).slice(0, 8);
+
+  const hasFilter = filterKind !== 'All' || filterCat !== 'All' || filterBank !== 'All' || search !== '';
+
+  function Chip({ label, options, value, onChange }: { label: string; options: string[]; value: string; onChange: (v: string) => void }) {
+    const [open, setOpen] = useState(false);
+    const active = value !== 'All';
+    return (
+      <div style={{ position: 'relative' }}>
+        <button onClick={() => setOpen(v => !v)} className="chip" style={{
+          background: active ? 'var(--brand-soft)' : undefined,
+          color: active ? 'var(--brand)' : undefined,
+          border: active ? '1px solid var(--brand)' : undefined,
+        }}>
+          {active ? value : label}
+          <Icon name="chev" size={11} stroke={active ? 'var(--brand)' : 'var(--ink-muted)'} />
+        </button>
+        {open && (
+          <>
+            <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 9 }} />
+            <div style={{
+              position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 10,
+              background: 'var(--surface)', border: '1px solid var(--line)',
+              borderRadius: 10, boxShadow: '0 14px 32px -10px rgba(15,14,26,0.18)',
+              padding: 4, minWidth: 160, maxHeight: 240, overflowY: 'auto',
+            }}>
+              {['All', ...options].map(opt => (
+                <div key={opt} onClick={() => { onChange(opt); setOpen(false); }} style={{
+                  padding: '7px 12px', fontSize: 12.5, borderRadius: 6, cursor: 'pointer',
+                  color: value === opt ? 'var(--brand)' : 'var(--ink)',
+                  fontWeight: value === opt ? 600 : 500,
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >{opt === 'All' ? 'All ' + label + 's' : opt}</div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="card" style={{ padding: '18px 20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Recent transactions</div>
-        <div style={{ position: 'relative' }}>
-          <div
-            onClick={() => setOpen(v => !v)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
-              fontSize: 11.5, fontWeight: 600, padding: '5px 10px', borderRadius: 8,
-              color: filter === 'All' ? 'var(--ink-soft)' : 'var(--brand)',
-              background: (open || filter !== 'All') ? 'var(--brand-soft)' : 'transparent',
-              border: '1px solid ' + ((open || filter !== 'All') ? 'var(--brand)' : 'transparent'),
-            }}>
-            <Icon name="filter" size={13} />
-            {filter === 'All' ? 'Filter' : filter}
-          </div>
-          {open && (
-            <>
-              <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 9 }} />
-              <div style={{
-                position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 10,
-                background: 'var(--surface)', border: '1px solid var(--line)',
-                borderRadius: 10, boxShadow: '0 14px 32px -10px rgba(15,14,26,0.18)',
-                padding: 4, minWidth: 140,
-              }}>
-                {['All', 'Income', 'Expenses'].map(f => (
-                  <div key={f} onClick={() => { setFilter(f); setOpen(false); }} style={{
-                    padding: '7px 12px', fontSize: 12.5, borderRadius: 6, cursor: 'pointer',
-                    color: filter === f ? 'var(--brand)' : 'var(--ink)',
-                    fontWeight: filter === f ? 600 : 500,
-                    background: 'transparent',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                  >{f}</div>
-                ))}
-              </div>
-            </>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {/* Search toggle */}
+          <button onClick={() => setShowSearch(v => !v)} style={{
+            width: 30, height: 30, borderRadius: 999, display: 'grid', placeItems: 'center',
+            background: showSearch ? 'var(--brand-soft)' : 'var(--bg)',
+            border: '1px solid ' + (showSearch ? 'var(--brand)' : 'var(--line)'),
+            cursor: 'pointer',
+          }}>
+            <Icon name="search" size={13} stroke={showSearch ? 'var(--brand)' : 'var(--ink-soft)'} />
+          </button>
+          {hasFilter && (
+            <button onClick={() => { setFilterKind('All'); setFilterCat('All'); setFilterBank('All'); setSearch(''); }} style={{
+              fontSize: 11, padding: '3px 8px', borderRadius: 999, cursor: 'pointer',
+              background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink-soft)',
+            }}>Clear</button>
           )}
         </div>
       </div>
 
+      {/* Filter chips row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: showSearch || hasFilter ? 10 : 0, flexWrap: 'wrap' }}>
+        {/* Kind filter */}
+        <div style={{ display: 'flex', gap: 4 }}>
+          {['All', 'Income', 'Expenses'].map(k => (
+            <button key={k} onClick={() => setFilterKind(k)} style={{
+              padding: '4px 10px', fontSize: 11.5, fontWeight: 600, borderRadius: 999, cursor: 'pointer',
+              background: filterKind === k ? 'var(--brand)' : 'var(--bg)',
+              color: filterKind === k ? '#fff' : 'var(--ink-soft)',
+              border: '1px solid ' + (filterKind === k ? 'var(--brand)' : 'var(--line)'),
+            }}>{k}</button>
+          ))}
+        </div>
+        <Chip label="Category" options={categories} value={filterCat}  onChange={setFilterCat} />
+        <Chip label="Bank"     options={banks}      value={filterBank} onChange={setFilterBank} />
+      </div>
+
+      {/* Search bar */}
+      {showSearch && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10,
+          background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 8, padding: '6px 10px',
+        }}>
+          <Icon name="search" size={13} stroke="var(--ink-muted)" />
+          <input
+            autoFocus
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search description or category…"
+            style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 12.5, color: 'var(--ink)', fontFamily: 'inherit' }}
+          />
+          {search && <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-muted)', fontSize: 14, lineHeight: 1 }}>×</button>}
+        </div>
+      )}
+
       {list.length === 0 ? (
         <div style={{ padding: '24px 0', textAlign: 'center', fontSize: 12, color: 'var(--ink-soft)' }}>
-          No {filter.toLowerCase()} transactions this month.
+          No transactions match your filters.
         </div>
       ) : list.map((t, i) => (
         <div key={t.id} style={{ display: 'grid', gridTemplateColumns: '70px 1fr auto auto', alignItems: 'center', gap: 12, padding: '9px 0', borderTop: i === 0 ? 'none' : '1px solid var(--line)' }}>
@@ -437,9 +503,9 @@ export function Dashboard({ year = 2026, month = 4, refreshKey = 0 }: { year?: n
           <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', marginTop: 2 }}>By category · top spending</div>
           <div style={{ display: 'flex', gap: 12, marginTop: 14, alignItems: 'center' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 7, fontSize: 11.5, flex: 1, minWidth: 0 }}>
-              {budget.slice(0, 6).map((b, i) => (
+              {budget.slice(0, 6).map((b) => (
                 <div key={b.name} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: 999, flexShrink: 0, background: i === 0 ? 'var(--ink)' : b.color, display: 'inline-block' }} />
+                  <span style={{ width: 8, height: 8, borderRadius: 999, flexShrink: 0, background: b.color, display: 'inline-block' }} />
                   <span style={{ color: 'var(--ink-soft)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</span>
                 </div>
               ))}
